@@ -1,0 +1,8 @@
+.env
+snapshots/
+snapshots/*
+*.pyc
+*.pyo
+__pycache__
+/__pycache__/
+/__pycache__/*

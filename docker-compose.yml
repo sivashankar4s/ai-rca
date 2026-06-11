@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai-rca-postgres
+    environment:
+      POSTGRES_USER: airca
+      POSTGRES_PASSWORD: airca
+      POSTGRES_DB: airca
+    ports:
+      - "5432:5432"
+    volumes:
+      - airca_pgdata:/var/lib/postgresql/data
+
+volumes:
+  airca_pgdata:

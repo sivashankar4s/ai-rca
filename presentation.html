@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI-RCA — Hackathon Presentation</title>
+  <style>
+    /* ── Reset & base ─────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --roche-blue:   #005dab;
+      --roche-light:  #007ac2;
+      --accent:       #00b4d8;
+      --accent2:      #f0a500;
+      --bg:           #0a0f1e;
+      --bg2:          #111827;
+      --bg3:          #1a2236;
+      --card:         #1e2d47;
+      --border:       #2a3f5e;
+      --text:         #e8f0fe;
+      --text-muted:   #8fa8c8;
+      --green:        #22c55e;
+      --red:          #ef4444;
+      --orange:       #f97316;
+      --purple:       #a855f7;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    /* ── Nav ──────────────────────────────────────────────────────────── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: rgba(10, 15, 30, 0.95);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      display: flex; align-items: center; gap: 6px;
+      padding: 0 24px; height: 52px; overflow-x: auto;
+    }
+    nav a {
+      color: var(--text-muted); text-decoration: none;
+      font-size: 12px; font-weight: 500; white-space: nowrap;
+      padding: 6px 12px; border-radius: 6px;
+      transition: all .2s;
+    }
+    nav a:hover { color: var(--accent); background: rgba(0,180,216,.1); }
+    nav .nav-sep { color: var(--border); margin: 0 2px; }
+
+    /* ── Slide wrapper ────────────────────────────────────────────────── */
+    .slide {
+      min-height: 100vh; padding: 80px 40px 60px;
+      display: flex; flex-direction: column; justify-content: center;
+      border-bottom: 1px solid var(--border);
+      max-width: 1200px; margin: 0 auto;
+    }
+
+    /* ── Section labels ───────────────────────────────────────────────── */
+    .slide-label {
+      font-size: 11px; font-weight: 700; letter-spacing: 2px;
+      text-transform: uppercase; color: var(--accent);
+      margin-bottom: 16px;
+    }
+    .slide-title {
+      font-size: clamp(28px, 5vw, 48px); font-weight: 800;
+      line-height: 1.15; margin-bottom: 20px;
+    }
+    .slide-subtitle {
+      font-size: clamp(15px, 2vw, 18px); color: var(--text-muted);
+      max-width: 780px; margin-bottom: 40px;
+    }
+
+    /* ── Hero / Title slide ───────────────────────────────────────────── */
+    #slide-title {
+      background: radial-gradient(ellipse at 30% 50%, rgba(0,93,171,.3) 0%, transparent 60%),
+                  radial-gradient(ellipse at 70% 20%, rgba(0,180,216,.15) 0%, transparent 50%),
+                  var(--bg);
+      min-height: 100vh;
+    }
+    .hero-tag {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(0,180,216,.12); border: 1px solid rgba(0,180,216,.3);
+      color: var(--accent); padding: 6px 16px; border-radius: 100px;
+      font-size: 13px; font-weight: 600; margin-bottom: 32px;
+    }
+    .hero-title {
+      font-size: clamp(40px, 8vw, 72px); font-weight: 900;
+      line-height: 1.05; margin-bottom: 16px;
+    }
+    .hero-title span { color: var(--accent); }
+    .hero-sub {
+      font-size: clamp(16px, 2.5vw, 22px);
+      color: var(--text-muted); max-width: 680px;
+      margin-bottom: 48px;
+    }
+    .hero-pills { display: flex; flex-wrap: wrap; gap: 12px; }
+    .pill {
+      background: rgba(255,255,255,.05); border: 1px solid var(--border);
+      padding: 8px 20px; border-radius: 100px;
+      font-size: 13px; font-weight: 500;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+    .pill .dot.blue { background: var(--roche-light); }
+    .pill .dot.orange { background: var(--accent2); }
+    .pill .dot.purple { background: var(--purple); }
+
+    /* ── Cards ────────────────────────────────────────────────────────── */
+    .card-grid {
+      display: grid; gap: 20px;
+    }
+    .card-grid-2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+    .card-grid-3 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+    .card-grid-4 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px; padding: 28px;
+    }
+    .card-icon {
+      width: 48px; height: 48px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; margin-bottom: 16px;
+    }
+    .card-icon.blue   { background: rgba(0,122,194,.2); }
+    .card-icon.green  { background: rgba(34,197,94,.2); }
+    .card-icon.orange { background: rgba(249,115,22,.2); }
+    .card-icon.red    { background: rgba(239,68,68,.2); }
+    .card-icon.purple { background: rgba(168,85,247,.2); }
+    .card-icon.teal   { background: rgba(0,180,216,.2); }
+
+    .card h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+    .card p  { font-size: 14px; color: var(--text-muted); line-height: 1.6; }
+
+    /* ── Problem pain points ──────────────────────────────────────────── */
+    .pain-list { list-style: none; display: flex; flex-direction: column; gap: 16px; }
+    .pain-list li {
+      display: flex; align-items: flex-start; gap: 16px;
+      background: rgba(239,68,68,.07); border: 1px solid rgba(239,68,68,.2);
+      border-radius: 12px; padding: 18px 22px;
+    }
+    .pain-num {
+      min-width: 32px; height: 32px; border-radius: 50%;
+      background: rgba(239,68,68,.2); color: var(--red);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 14px;
+    }
+    .pain-list li strong { display: block; margin-bottom: 4px; font-size: 15px; }
+    .pain-list li span { color: var(--text-muted); font-size: 14px; }
+
+    /* ── Who are the users ────────────────────────────────────────────── */
+    .user-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px; padding: 28px;
+      display: flex; gap: 20px; align-items: flex-start;
+    }
+    .user-avatar {
+      width: 56px; height: 56px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px; flex-shrink: 0;
+    }
+    .user-card h3 { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+    .user-card .role { font-size: 12px; font-weight: 600; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--accent); margin-bottom: 10px; }
+    .user-card p { font-size: 14px; color: var(--text-muted); }
+    .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+    .tag {
+      font-size: 11px; font-weight: 600; padding: 3px 10px;
+      border-radius: 100px; background: rgba(0,180,216,.12);
+      border: 1px solid rgba(0,180,216,.25); color: var(--accent);
+    }
+
+    /* ── Workflow diagram ─────────────────────────────────────────────── */
+    .flow {
+      display: flex; align-items: stretch; gap: 0;
+      overflow-x: auto; padding-bottom: 12px;
+    }
+    .flow-step {
+      flex: 1; min-width: 160px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px; padding: 22px 18px;
+      position: relative; text-align: center;
+    }
+    .flow-step + .flow-step { margin-left: 32px; }
+    .flow-step::before {
+      content: '▶';
+      position: absolute; left: -22px; top: 50%; transform: translateY(-50%);
+      color: var(--accent); font-size: 14px;
+    }
+    .flow-step:first-child::before { display: none; }
+    .flow-num {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--roche-blue); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 15px; margin: 0 auto 12px;
+    }
+    .flow-step h4 { font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+    .flow-step p { font-size: 12px; color: var(--text-muted); }
+    .flow-badge {
+      display: inline-block; margin-top: 10px;
+      font-size: 10px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+      padding: 3px 10px; border-radius: 100px;
+    }
+    .fb-ui     { background: rgba(168,85,247,.15); color: var(--purple); border: 1px solid rgba(168,85,247,.3); }
+    .fb-aws    { background: rgba(0,122,194,.15); color: var(--roche-light); border: 1px solid rgba(0,122,194,.3); }
+    .fb-llm    { background: rgba(0,180,216,.15); color: var(--accent); border: 1px solid rgba(0,180,216,.3); }
+    .fb-result { background: rgba(34,197,94,.15); color: var(--green); border: 1px solid rgba(34,197,94,.3); }
+
+    /* ── Architecture ─────────────────────────────────────────────────── */
+    .arch-box {
+      border: 1px solid var(--border); border-radius: 16px;
+      padding: 24px; margin-bottom: 20px;
+      position: relative;
+    }
+    .arch-label {
+      position: absolute; top: -12px; left: 20px;
+      background: var(--bg2); padding: 2px 12px; border-radius: 100px;
+      font-size: 11px; font-weight: 700; letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .arch-label.frontend  { color: var(--purple); border: 1px solid rgba(168,85,247,.3); }
+    .arch-label.backend   { color: var(--accent);  border: 1px solid rgba(0,180,216,.3); }
+    .arch-label.aws       { color: var(--accent2); border: 1px solid rgba(240,165,0,.3); }
+    .arch-label.llm       { color: var(--green);   border: 1px solid rgba(34,197,94,.3); }
+    .arch-inner { display: flex; flex-wrap: wrap; gap: 12px; }
+    .arch-chip {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(255,255,255,.04); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 16px; font-size: 13px; font-weight: 500;
+    }
+    .arch-chip .icon { font-size: 18px; }
+    .arch-arrow {
+      text-align: center; color: var(--text-muted); font-size: 22px;
+      margin: -6px 0; line-height: 1;
+    }
+
+    /* ── Components table ─────────────────────────────────────────────── */
+    .comp-table { width: 100%; border-collapse: collapse; }
+    .comp-table th {
+      text-align: left; font-size: 11px; font-weight: 700; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--text-muted); padding: 0 16px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .comp-table td { padding: 14px 16px; border-bottom: 1px solid rgba(42,63,94,.4); vertical-align: top; }
+    .comp-table tr:last-child td { border-bottom: none; }
+    .comp-table td:first-child { font-weight: 700; font-size: 14px; white-space: nowrap; }
+    .comp-table td:nth-child(2) { font-size: 13px; color: var(--accent); white-space: nowrap; }
+    .comp-table td:nth-child(3) { font-size: 13px; color: var(--text-muted); }
+
+    /* ── Metrics ──────────────────────────────────────────────────────── */
+    .metric-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px; padding: 28px 24px; text-align: center;
+    }
+    .metric-before {
+      font-size: 13px; color: var(--red); font-weight: 600;
+      margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .metric-after {
+      font-size: 13px; color: var(--green); font-weight: 600;
+      margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .metric-big {
+      font-size: clamp(36px, 5vw, 52px); font-weight: 900;
+      line-height: 1; margin: 4px 0;
+    }
+    .metric-big.green { color: var(--green); }
+    .metric-big.orange{ color: var(--accent2); }
+    .metric-big.blue  { color: var(--accent); }
+    .metric-label { font-size: 13px; color: var(--text-muted); }
+
+    /* ── LLM Steps ────────────────────────────────────────────────────── */
+    .llm-step {
+      display: flex; gap: 20px; align-items: flex-start;
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 14px; padding: 20px 24px; margin-bottom: 14px;
+    }
+    .llm-step-num {
+      min-width: 36px; height: 36px; border-radius: 50%;
+      background: var(--roche-blue); display: flex; align-items: center;
+      justify-content: center; font-weight: 800; font-size: 14px;
+    }
+    .llm-step-content h4 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+    .llm-step-content p { font-size: 13px; color: var(--text-muted); }
+    .llm-step-content code {
+      background: rgba(0,0,0,.3); padding: 2px 8px; border-radius: 6px;
+      font-size: 12px; color: var(--accent);
+    }
+
+    /* ── Output example ──────────────────────────────────────────────── */
+    .output-card {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 14px; padding: 20px 24px;
+    }
+    .output-row { display: flex; gap: 12px; margin-bottom: 10px; align-items: flex-start; }
+    .output-key {
+      min-width: 140px; font-size: 12px; font-weight: 700;
+      color: var(--accent2); text-transform: uppercase; letter-spacing: .5px;
+      padding-top: 2px;
+    }
+    .output-val { font-size: 13px; color: var(--text); }
+    .output-val.muted { color: var(--text-muted); }
+
+    /* ── Future roadmap ───────────────────────────────────────────────── */
+    .roadmap-item {
+      display: flex; gap: 20px; align-items: flex-start;
+      padding: 20px 0; border-bottom: 1px solid var(--border);
+    }
+    .roadmap-item:last-child { border-bottom: none; }
+    .roadmap-badge {
+      min-width: 90px; height: 28px; border-radius: 100px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+    }
+    .rb-done    { background: rgba(34,197,94,.15); color: var(--green); border: 1px solid rgba(34,197,94,.3); }
+    .rb-future  { background: rgba(240,165,0,.15);  color: var(--accent2); border: 1px solid rgba(240,165,0,.3); }
+    .rb-stretch { background: rgba(168,85,247,.15); color: var(--purple); border: 1px solid rgba(168,85,247,.3); }
+    .roadmap-text h4 { font-size: 15px; font-weight: 700; margin-bottom: 5px; }
+    .roadmap-text p { font-size: 13px; color: var(--text-muted); }
+
+    /* ── Callout ─────────────────────────────────────────────────────── */
+    .callout {
+      border-left: 4px solid var(--accent);
+      background: rgba(0,180,216,.07);
+      border-radius: 0 12px 12px 0;
+      padding: 16px 20px; margin-top: 24px;
+      font-size: 14px; color: var(--text-muted);
+    }
+    .callout strong { color: var(--text); }
+
+    /* ── Team ────────────────────────────────────────────────────────── */
+    .team-grid {
+      display: flex; flex-wrap: wrap; gap: 20px;
+    }
+    .team-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px; padding: 24px 28px; flex: 1; min-width: 200px;
+      text-align: center;
+    }
+    .team-avatar {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--roche-blue), var(--accent));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px; font-weight: 800; margin: 0 auto 12px;
+      color: #fff;
+    }
+    .team-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+    .team-card .team-role { font-size: 12px; color: var(--accent); font-weight: 600; }
+
+    /* ── Closing slide ───────────────────────────────────────────────── */
+    #slide-close {
+      background: radial-gradient(ellipse at 50% 60%, rgba(0,93,171,.35) 0%, transparent 65%),
+                  var(--bg);
+      text-align: center; align-items: center;
+    }
+    .close-logo {
+      font-size: 64px; margin-bottom: 24px;
+    }
+
+    /* ── Scrollbar ───────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+    /* ── Print / export fix ──────────────────────────────────────────── */
+    @media print {
+      nav { display: none; }
+      .slide { min-height: auto; page-break-after: always; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Navigation ────────────────────────────────────────────────────────── -->
+<nav>
+  <a href="#slide-title">Home</a><span class="nav-sep">·</span>
+  <a href="#slide-problem">Problem</a><span class="nav-sep">·</span>
+  <a href="#slide-users">Users</a><span class="nav-sep">·</span>
+  <a href="#slide-solution">Solution</a><span class="nav-sep">·</span>
+  <a href="#slide-workflow">Workflow</a><span class="nav-sep">·</span>
+  <a href="#slide-arch">Architecture</a><span class="nav-sep">·</span>
+  <a href="#slide-components">Components</a><span class="nav-sep">·</span>
+  <a href="#slide-config">Config Panel</a><span class="nav-sep">·</span>
+  <a href="#slide-llm">AI Pipeline</a><span class="nav-sep">·</span>
+  <a href="#slide-output">Output</a><span class="nav-sep">·</span>
+  <a href="#slide-metrics">Metrics</a><span class="nav-sep">·</span>
+  <a href="#slide-roadmap">Roadmap</a><span class="nav-sep">·</span>
+  <a href="#slide-close">Close</a>
+</nav>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     SLIDE 1 — TITLE
+══════════════════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-title">
+  <div class="hero-tag">⚙ Roche DS Platform · Hackathon 2026</div>
+  <h1 class="hero-title">AI Root Cause<br><span>Analyzer</span></h1>
+  <p class="hero-sub">
+    From raw Athena failure records to grouped root causes, CloudWatch deep-links,
+    and actionable fixes — in seconds, not hours.
+  </p>
+  <div class="hero-pills">
+    <span class="pill"><span class="dot"></span>Phase 1 — Built &amp; Running</span>
+    <span class="pill"><span class="dot blue"></span>FastAPI · Python 3.13</span>
+    <span class="pill"><span class="dot orange"></span>Amazon Athena · CloudWatch</span>
+    <span class="pill"><span class="dot purple"></span>Claude AI (Navify Enrichment API)</span>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     SLIDE 2 — PROBLEM
+══════════════════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-problem">
+  <p class="slide-label">The Problem</p>
+  <h2 class="slide-title">Manual RCA is slow,<br>error-prone &amp; deep-knowledge-dependent</h2>
+  <p class="slide-subtitle">
+    Every time a data-pipeline failure hits <code style="background:rgba(255,255,255,.08);padding:2px 8px;border-radius:6px;font-size:14px">dp_monitor_db11224</code>,
+    engineers repeat the same 4-step manual process.
+  </p>
+  <ul class="pain-list">
+    <li>
+      <div class="pain-num">1</div>
+      <div>
+        <strong>Query Athena manually</strong>
+        <span>Write SQL against the monitoring table, filter by status=FAILED, guess the right time window. Takes 10–20 min per investigation.</span>
+      </div>
+    </li>
+    <li>
+      <div class="pain-num">2</div>
+      <div>
+        <strong>Author CloudWatch Insights queries from scratch</strong>
+        <span>Must know the log group names, error field names, and component names. Senior knowledge required. Mistakes lead to zero results.</span>
+      </div>
+    </li>
+    <li>
+      <div class="pain-num">3</div>
+      <div>
+        <strong>Read through hundreds of log lines</strong>
+        <span>Manually correlate log lines with file_trace_ids, device IDs, and error codes. High cognitive load, easy to miss patterns.</span>
+      </div>
+    </li>
+    <li>
+      <div class="pain-num">4</div>
+      <div>
+        <strong>Write the RCA report</strong>
+        <span>Document root cause, impacted count, suggested fix, and escalation path. Takes another 30–60 min after the investigation.</span>
+      </div>
+    </li>
+  </ul>
+  <div class="callout">
+    <strong>Total time per incident:</strong> 1–3 hours of senior engineer time.
+    With multiple concurrent failures this becomes the biggest drag on on-call rotation.
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     SLIDE 3 — WHO ARE THE USERS
+══════════════════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-users">
+  <p class="slide-label">Target Users</p>
+  <h2 class="slide-title">Who benefits from AI-RCA?</h2>
+  <p class="slide-subtitle">Three distinct personas across platform and support engineering.</p>
+
+  <div class="card-grid card-grid-3" style="margin-bottom:28px">
+    <div class="user-card" style="flex-direction:column">
+      <div style="display:flex;gap:16px;align-items:center;margin-bottom:12px">
+        <div class="user-avatar" style="background:rgba(0,122,194,.2)">👨‍💻</div>
+        <div>
+          <div class="role">Platform Engineer</div>
+          <h3>On-Call SRE / Dev</h3>
+        </div>
+      </div>
+      <p>Triggered by a PagerDuty alert at 2 AM. Needs to identify the root cause of 50+ failing records <em>fast</em>, without manually querying Athena and CloudWatch.</p>
+      <div class="tags">
+        <span class="tag">Primary User</span>
+        <span class="tag">High Urgency</span>
+        <span class="tag">On-Call</span>
+      </div>
+    </div>
+
+    <div class="user-card" style="flex-direction:column">
+      <div style="display:flex;gap:16px;align-items:center;margin-bottom:12px">
+        <div class="user-avatar" style="background:rgba(34,197,94,.2)">📊</div>
+        <div>
+          <div class="role">QA / Test Engineer</div>
+          <h3>QA Analyst</h3>
+        </div>
+      </div>
+      <p>Validates pipeline health after deployments or during regression runs. Uses AI-RCA to confirm no regressions in failure patterns without deep AWS knowledge.</p>
+      <div class="tags">
+        <span class="tag">Regular User</span>
+        <span class="tag">Post-Deploy</span>
+        <span class="tag">Trend Analysis</span>
+      </div>
+    </div>
+
+    <div class="user-card" style="flex-direction:column">
+      <div style="display:flex;gap:16px;align-items:center;margin-bottom:12px">
+        <div class="user-avatar" style="background:rgba(240,165,0,.2)">🧑‍💼</div>
+        <div>
+          <div class="role">Tech Lead / Manager</div>
+          <h3>Engineering Lead</h3>
+        </div>
+      </div>
+      <p>Reviews the executive summary and failure groups during stand-up. Uses the tool to generate status reports for stakeholders without diving into AWS consoles.</p>
+      <div class="tags">
+        <span class="tag">Occasional</span>
+        <span class="tag">Executive Summary</span>
+        <span class="tag">Reporting</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="background:rgba(0,93,171,.12);border-color:rgba(0,122,194,.3)">
+    <h3 style="margin-bottom:10px;font-size:15px">Prerequisite Knowledge — Before AI-RCA</h3>
+    <div class="card-grid card-grid-4" style="margin-top:12px">
+      <div style="font-size:13px;color:var(--text-muted)">✗ Know Athena database & table names</div>
+      <div style="font-size:13px;color:var(--text-muted)">✗ Know CloudWatch log group paths</div>
+      <div style="font-size:13px;color:var(--text-muted)">✗ Know Insights query syntax</div>
+      <div style="font-size:13px;color:var(--text-muted)">✗ Know which error codes map to which components</div>
+    </div>
+    <p style="margin-top:14px;font-size:14px;color:var(--green)">✓ With AI-RCA: <strong style="color:var(--text)">none of the above is required</strong> — the AI generates everything from the failure records.</p>
+    <p style="margin-top:10px;font-size:13px;color:var(--accent2)">🔑 <strong>Access requirement:</strong> Valid AWS credentials with read access to Athena and CloudWatch are the only prerequisite. Credentials can be supplied at runtime via the Config panel — no code change or server restart needed.</p>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     SLIDE 4 — SOLUTION
+══════════════════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-solution">
+  <p class="slide-label">The Solution</p>
+  <h2 class="slide-title">AI-RCA automates the entire<br>investigation pipeline</h2>
+  <p class="slide-subtitle">A two-step web UI backed by a FastAPI service that orchestrates Athena, CloudWatch, and an LLM.</p>
+
+  <div class="card-grid card-grid-2">
+    <div class="card">
+      <div class="card-icon blue">🔍</div>
+      <h3>Step 1 — Fetch</h3>
+      <p>Select a time range (1h / 1d / 1w) or pick custom date pickers. Optionally filter by component name, file name, or trace ID. AI-RCA queries Athena and returns a paginated failure table in seconds.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon teal">🧠</div>
+      <h3>Step 2 — Analyze</h3>
+      <p>Select one or more <strong>failed entries</strong> from the table, click "Analyze Root Cause." The backend automatically searches AWS CloudWatch logs for those records and feeds them to the LLM, which summarizes the root cause, groups failures by pattern, and returns a structured report — no manual log hunting required.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon green">📋</div>
+      <h3>Failure Groups</h3>
+      <p>Each group has: error pattern, root cause (2–3 sentences), failure category, impact count, immediate action, likely fix, affected files, and escalation path — all specific to actual field values.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon orange">📝</div>
+      <h3>Executive Summary</h3>
+      <p>A 2–3 sentence human-readable report ready to share with stakeholders. Generated automatically alongside the failure groups — zero manual writing. Model accuracy is tunable: the <strong>Config panel lets you switch between any available LLM</strong> (Claude, Titan, etc.) at runtime to balance speed, cost, and accuracy for your use case.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon purple">🔗</div>
+      <h3>CloudWatch Deep-Links</h3>
+      <p>Every failure group includes a direct CloudWatch Logs Insights URL pre-populated with the right query, log group, and time window. One click — no manual setup.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon red">💾</div>
+      <h3>Snapshot &amp; Audit Trail</h3>
+      <p>Every Athena result is auto-saved to <code style="background:rgba(0,0,0,.3);padding:1px 6px;border-radius:4px;font-size:12px">./snapshots/</code> with a timestamped filename. Supports local dev mode with static JSON — no AWS credentials needed.</p>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     SLIDE 5 — WORKFLOW
+══════════════════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-workflow">
+  <p class="slide-label">Workflow</p>
+  <h2 class="slide-title">End-to-End User Journey</h2>
+  <p class="slide-subtitle">From alert to actionable RCA in under 60 seconds.</p>
+
+  <!-- Row 1: User actions -->
+  <p style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:12px">User Actions</p>
+  <div class="flow" style="margin-bottom:36px">
+    <div class="flow-step">
+      <div class="flow-num">1</div>
+      <h4>Open UI</h4>
+      <p>Load the web app. Default: Last 1 Hour selected.</p>
+      <span class="flow-badge fb-ui">Browser</span>
+    </div>
+    <div class="flow-step">
+      <div class="flow-num">2</div>
+      <h4>Set Time Range</h4>
+      <p>Click 1h / 1d / 1w or use custom date pickers. Optionally add component filter.</p>
+      <span class="flow-badge fb-ui">Browser</span>
+    </div>
+    <div class="flow-step">
+      <div class="flow-num">3</div>
+      <h4>Fetch Failures</h4>
+      <p>Click "Fetch Failures" — Athena query runs, paginated table appears.</p>
+      <span class="flow-badge fb-aws">Athena</span>
+    </div>
+    <div class="flow-step">
+      <div class="flow-num">4</div>
+      <h4>Select Records</h4>
+      <p>Tick individual rows or "Select All." Selection persists across pages.</p>
+      <span class="flow-badge fb-ui">Browser</span>
+    </div>
+    <div class="flow-step">
+      <div class="flow-num">5</div>
+      <h4>Analyze Root Cause</h4>
+      <p>Click "Analyze Root Cause." Full AI pipeline executes.</p>
+      <span class="flow-badge fb-llm">AI + CW</span>
+    </div>
+    <div class="flow-step">
+      <div class="flow-num">6</div>
+      <h4>Read Results</h4>
+      <p>Review grouped RCA, copy summary, click CloudWatch link.</p>
+      <span class="flow-badge fb-result">Done ✓</span>
+    </div>
+  </div>
+
+  <!-- Row 2: System internals -->
+  <p style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:12px">System Internals (triggered by Step 5)</p>
+  <div class="flow">
+    <div class="flow-step" style="border-color:rgba(0,180,216,.3)">
+      <div class="flow-num" style="background:var(--accent)">A</div>
+      <h4>Summarize Failures</h4>
+      <p>LLM reads failure records, identifies error codes, stages, and time patterns.</p>
+      <span class="flow-badge fb-llm">LLM Call 1</span>
+    </div>
+    <div class="flow-step" style="border-color:rgba(0,180,216,.3)">
+      <div class="flow-num" style="background:var(--accent)">B</div>
+      <h4>Generate CW Queries</h4>
+      <p>LLM generates 3 targeted CloudWatch Insights queries from context.</p>
+      <span class="flow-badge fb-llm">LLM Call 2</span>
+    </div>
+    <div class="flow-step" style="border-color:rgba(240,165,0,.3)">
+      <div class="flow-num" style="background:var(--accent2)">C</div>
+      <h4>Execute CW Queries</h4>
+      <p>Up to 3 parallel CloudWatch Insights queries, collect log lines.</p>
+      <span class="flow-badge fb-aws">CloudWatch</span>
+    </div>
+    <div class="flow-step" style="border-color:rgba(0,180,216,.3)">
+      <div class="flow-num" style="background:var(--accent)">D</div>
+      <h4>RCA + Grouping</h4>
+      <p>LLM correlates records + logs → structured FailureGroup JSON array.</p>
+      <span class="flow-badge fb-llm">LLM Call 3</span>
+    </div>
+    <div class="flow-step" style="border-color:rgba(34,197,94,.3)">
+      <div class="flow-num" style="background:var(--green)">E</div>
+      <h4>Return &amp; Render</h4>
+      <p>FastAPI returns AnalyzeResponse; UI renders groups, stats, CW links.</p>
+      <span class="flow-badge fb-result">API → UI</span>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     SLIDE 6 — ARCHITECTURE
+══════════════════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-arch">
+  <p class="slide-label">Architecture</p>
+  <h2 class="slide-title">System Architecture</h2>
+  <p class="slide-subtitle">Three-layer design: Browser SPA → FastAPI Backend → AWS Services + LLM.</p>
+
+  <div class="arch-box" style="border-color:rgba(168,85,247,.3)">
+    <div class="arch-label frontend">Frontend — Browser SPA</div>
+    <div class="arch-inner">
+      <div class="arch-chip"><span class="icon">🖥</span> Vanilla HTML / CSS / JS</div>
+      <div class="arch-chip"><span class="icon">📋</span> Paginated Failures Table</div>
+      <div class="arch-chip"><span class="icon">⚙</span> Time Range + Date Pickers</div>
+      <div class="arch-chip"><span class="icon">📊</span> RCA Results + Failure Groups</div>
+      <div class="arch-chip"><span class="icon">🔗</span> CloudWatch Deep-Links</div>
+      <div class="arch-chip"><span class="icon">🌙</span> Dark Theme SPA</div>
+    </div>
+  </div>
+
+  <div class="arch-arrow">↕ REST JSON  (POST /api/failures · POST /api/analyze)</div>
+
+  <div class="arch-box" style="border-color:rgba(0,180,216,.3);margin-top:12px">
+    <div class="arch-label backend">Backend — FastAPI (Python 3.13)</div>
+    <div class="arch-inner">
+      <div class="arch-chip"><span class="icon">⚡</span> FastAPI + Pydantic v2</div>
+      <div class="arch-chip"><span class="icon">🎼</span> RCAOrchestrator</div>
+      <div class="arch-chip"><span class="icon">🗄</span> AthenaService</div>
+      <div class="arch-chip"><span class="icon">📜</span> CloudWatchService</div>
+      <div class="arch-chip"><span class="icon">🤖</span> BedrockService (LLM client)</div>
+      <div class="arch-chip"><span class="icon">🔒</span> Pydantic Settings (.env)</div>
+    </div>
+  </div>
+
+  <div class="arch-arrow">↕ boto3 (AWS SDK)  |  HTTPS (OpenAI-compatible API)</div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px">
+    <div class="arch-box" style="border-color:rgba(240,165,0,.3)">
+      <div class="arch-label aws">AWS Services</div>
+      <div class="arch-inner">
+        <div class="arch-chip"><span class="icon">🏛</span> Amazon Athena</div>
+        <div class="arch-chip"><span class="icon">📁</span> S3 (query results)</div>
+        <div class="arch-chip"><span class="icon">📡</span> CloudWatch Logs Insights</div>
+        <div class="arch-chip"><span class="icon">🔑</span> IAM (role / session token)</div>
+      </div>
+    </div>
+    <div class="arch-box" style="border-color:rgba(34,197,94,.3)">
+      <div class="arch-label llm">LLM — Navify Enrichment API</div>
+      <div class="arch-inner">
+        <div class="arch-chip"><span class="icon">🧠</span> Claude AI (gpt-4o endpoint)</div>
+        <div class="arch-chip"><span class="icon">🔌</span> OpenAI-compatible REST API</div>
+        <div class="arch-chip"><span class="icon">🏢</span> Roche internal (Navify)</div>
+        <div class="arch-chip"><span class="icon">🛡</span> Bearer token auth</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     SLIDE 7 — COMPONENTS
+══════════════════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-components">
+  <p class="slide-label">Components Used</p>
+  <h2 class="slide-title">Technology Stack</h2>
+  <p class="slide-subtitle">Every component chosen for reliability, minimal boilerplate, and AWS-native integration.</p>
+
+  <div class="card" style="overflow-x:auto">
+    <table class="comp-table">
+      <thead>
+        <tr>
+          <th>Component</th>
+          <th>Technology</th>
+          <th>Role in the System</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Web Framework</td>
+          <td>FastAPI + Uvicorn</td>
+          <td>Async REST API with automatic OpenAPI docs; serves static frontend files on the same origin</td>
+        </tr>
+        <tr>
+          <td>Data Validation</td>
+          <td>Pydantic v2</td>
+          <td>Strict request/response models (FailuresRequest, AnalyzeRequest, FailureGroup, etc.); parses event_data JSON inline</td>
+        </tr>
+        <tr>
+          <td>Configuration</td>
+          <td>pydantic-settings + .env</td>
+          <td>All secrets (AWS keys, LLM API key) loaded from .env; validated at startup with placeholder detection</td>
+        </tr>
+        <tr>
+          <td>Failure Data Store</td>
+          <td>Amazon Athena</td>
+          <td>Queries dp_monitor_db11224 table for FAILED records by time range or exact date window; results saved to S3</td>
+        </tr>
+        <tr>
+          <td>Log Retrieval</td>
+          <td>Amazon CloudWatch Logs Insights</td>
+          <td>Executes up to 3 LLM-generated queries per analysis; polls for completion; formats results as structured log lines</td>
+        </tr>
+        <tr>
+          <td>AI / LLM</td>
+          <td>Navify Enrichment API (Claude AI)</td>
+          <td>3 sequential LLM calls: (1) summarize failures, (2) generate CW queries, (3) perform RCA + grouping</td>
+        </tr>
+        <tr>
+          <td>AWS SDK</td>
+          <td>boto3</td>
+          <td>Athena and CloudWatch clients; supports explicit key/secret + session token or IAM role chain</td>
+        </tr>
+        <tr>
+          <td>Frontend</td>
+          <td>Vanilla JS + HTML + CSS</td>
+          <td>Zero-dependency SPA; dark-theme; paginated table; selections persist across pages; date pickers auto-fill from quick-range buttons</td>
+        </tr>
+        <tr>
+          <td>Data Model</td>
+          <td>FailureRecord + EventData</td>
+          <td>Carries file_trace_id, device_id, file_name, org, error_code, retry_count, stage — full context for AI analysis and future reprocessing</td>
+        </tr>
+        <tr>
+          <td>Snapshot Store</td>
+          <td>Local JSON files</td>
+          <td>Every Athena result saved to ./snapshots/ with timestamp; enables offline replay and audit trail</td>
+        </tr>
+        <tr>
+          <td>Config API</td>
+          <td>GET + POST /api/config</td>
+          <td>Runtime in-memory config update — AWS keys, region, Athena DB/table, LLM model. Falls back to .env if not set via UI</td>
+        </tr>
+        <tr>
+          <td>Models API</td>
+          <td>GET /api/models</td>
+          <td>Proxies Navify Enrichment API /v1/models — returns sorted model list for the UI dropdown; refreshable without restart</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     SLIDE 7b — CONFIG PANEL
+══════════════════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-config">
+  <p class="slide-label">Config Panel</p>
+  <h2 class="slide-title">Runtime Configuration —<br>No server restart needed</h2>
+  <p class="slide-subtitle">A slide-in drawer lets any team member update AWS credentials, Athena settings, and LLM model live — without touching <code style="background:rgba(255,255,255,.08);padding:2px 8px;border-radius:6px;font-size:14px">.env</code> or restarting the server.</p>
+
+  <div class="card-grid card-grid-2" style="margin-bottom:28px">
+    <div class="card">
+      <div class="card-icon blue">⚙</div>
+      <h3>One-Click Access</h3>
+      <p>A <strong>⚙ Config</strong> button in the header opens a slide-in drawer. Clicking the overlay or pressing Cancel closes it. After a successful save the drawer <strong>auto-closes after 1.5 seconds</strong> — no extra click needed.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon orange">🔑</div>
+      <h3>AWS Credentials</h3>
+      <p>Update <strong>Access Key ID</strong>, <strong>Secret Access Key</strong> (password field with 👁 show/hide toggle), <strong>Session Token</strong> (textarea for long tokens), and <strong>AWS Region</strong> — without restarting uvicorn.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon teal">🏛</div>
+      <h3>Athena Settings</h3>
+      <p>Change <strong>Database</strong> and <strong>Table</strong> at runtime. Useful when switching between dev/staging environments or testing against a different Athena database without editing any file.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon purple">🧠</div>
+      <h3>LLM Model Picker</h3>
+      <p>Dropdown auto-populated from <code style="background:rgba(0,0,0,.2);padding:1px 6px;border-radius:4px;font-size:12px">GET /api/models</code> (Navify Enrichment API). Includes a ↻ refresh button. Defaults to <strong>claude-sonnet-4</strong> set in <code style="background:rgba(0,0,0,.2);padding:1px 6px;border-radius:4px;font-size:12px">.env</code>.</p>
+    </div>
+  </div>
+
+  <div class="card" style="background:rgba(0,93,171,.1);border-color:rgba(0,122,194,.3)">
+    <h3 style="margin-bottom:16px;font-size:15px">How it works — 4 steps</h3>
+    <div class="flow">
+      <div class="flow-step" style="min-width:130px">
+        <div class="flow-num">1</div>
+        <h4>Load</h4>
+        <p><code style="font-size:11px">GET /api/config</code> fills fields on open. Secrets show ✔/⚠ hint only — never the value.</p>
+        <span class="flow-badge fb-aws">GET /api/config</span>
+      </div>
+      <div class="flow-step" style="min-width:130px">
+        <div class="flow-num">2</div>
+        <h4>Models</h4>
+        <p><code style="font-size:11px">GET /api/models</code> proxies Navify and fills the dropdown with all available models.</p>
+        <span class="flow-badge fb-llm">GET /api/models</span>
+      </div>
+      <div class="flow-step" style="min-width:130px">
+        <div class="flow-num">3</div>
+        <h4>Save</h4>
+        <p>Only non-blank fields are POSTed. Empty = keep the existing <code style="font-size:11px">.env</code> value untouched.</p>
+        <span class="flow-badge fb-aws">POST /api/config</span>
+      </div>
+      <div class="flow-step" style="min-width:130px">
+        <div class="flow-num">4</div>
+        <h4>Apply</h4>
+        <p>Settings updated in-memory. Next Athena / CloudWatch / LLM call uses new values instantly. Drawer auto-closes.</p>
+        <span class="flow-badge fb-result">Live ✓</span>
+      </div>
+    </div>
+    <p style="font-size:13px;color:var(--text-muted);margin-top:16px">
+      <strong style="color:var(--text)">Security:</strong> Secret Access Key and Session Token are write-only in the UI.
+      The <code style="background:rgba(0,0,0,.2);padding:1px 6px;border-radius:4px;font-size:11px">GET /api/config</code> response
+      only returns <code>aws_secret_access_key_set: true/false</code> and <code>aws_session_token_set: true/false</code> — the actual values are never sent to the browser.
+    </p>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     SLIDE 8 — AI PIPELINE
+══════════════════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-llm">
+  <p class="slide-label">AI Pipeline</p>
+  <h2 class="slide-title">What the LLM does — 3 calls,<br>each with a precise job</h2>
+  <p class="slide-subtitle">The RCAOrchestrator chains 3 LLM invocations with actual failure data injected into each prompt.</p>
+
+  <div class="llm-step">
+    <div class="llm-step-num">1</div>
+    <div class="llm-step-content">
+      <h4>Failure Summarization <span style="font-weight:400;color:var(--text-muted);font-size:12px">· max_tokens=1024</span></h4>
+      <p>
+        Injects up to <code>50 failure records</code> as JSON. Asks the LLM to identify: failing components,
+        exact error codes (e.g. <code>S3_PUT_FAILED</code>), pipeline stage clustering (e.g. <code>lz-processor</code>),
+        time-based bursts, and environmental signals (device IDs, tenant aliases).
+        Output feeds directly into LLM call 2 as context.
+      </p>
+    </div>
+  </div>
+
+  <div class="llm-step">
+    <div class="llm-step-num">2</div>
+    <div class="llm-step-content">
+      <h4>CloudWatch Query Generation <span style="font-weight:400;color:var(--text-muted);font-size:12px">· max_tokens=768</span></h4>
+      <p>
+        Injects the failure summary + extracted <code>error_codes</code>, <code>component names</code>,
+        and <code>file_trace_ids</code>. Generates exactly <code>3 Insights queries</code>:
+        (1) error code search across all fields,
+        (2) component + ERROR/WARN filter with stack traces,
+        (3) trace ID correlation to show the full execution path.
+        Returns a raw JSON array — no markdown.
+      </p>
+    </div>
+  </div>
+
+  <div class="llm-step">
+    <div class="llm-step-num">3</div>
+    <div class="llm-step-content">
+      <h4>RCA + Failure Grouping <span style="font-weight:400;color:var(--text-muted);font-size:12px">· max_tokens=4096</span></h4>
+      <p>
+        Injects failure records + summary + collected CloudWatch log lines.
+        Produces a structured JSON array of <code>FailureGroup</code> objects with:
+        <code>root_cause</code> (2–3 sentences with real field values),
+        <code>immediate_action</code> (single most important step RIGHT NOW),
+        <code>likely_fix</code> (specific code/config change),
+        <code>affected_files</code> (Lambda functions, Terraform files, config repos),
+        <code>escalation_path</code>, and <code>log_samples</code> (3 actual log lines).
+      </p>
+    </div>
+  </div>
+
+  <div class="callout">
+    <strong>Guardrails:</strong> All prompts explicitly demand actual field values (component_name, error_code, stage, device_id).
+    Vague responses like "check the logs" are prohibited in the prompt instructions.
+    JSON extraction uses a robust regex fallback if the LLM wraps output in markdown fences.
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     SLIDE 9 — SAMPLE OUTPUT
+══════════════════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-output">
+  <p class="slide-label">Sample Output</p>
+  <h2 class="slide-title">What a failure group looks like</h2>
+  <p class="slide-subtitle">Every field is populated with actual values from the failure records — no placeholders.</p>
+
+  <div class="output-card" style="margin-bottom:16px">
+    <p style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:16px">Failure Group · grp-1</p>
+    <div class="output-row">
+      <div class="output-key">Component</div>
+      <div class="output-val">lz-processor</div>
+    </div>
+    <div class="output-row">
+      <div class="output-key">Error Pattern</div>
+      <div class="output-val">S3_PUT_FAILED at lz-processor stage</div>
+    </div>
+    <div class="output-row">
+      <div class="output-key">Category</div>
+      <div class="output-val"><span style="background:rgba(239,68,68,.15);color:var(--red);padding:2px 10px;border-radius:100px;font-size:12px;font-weight:700">Resource</span></div>
+    </div>
+    <div class="output-row">
+      <div class="output-key">Impact Count</div>
+      <div class="output-val">47 records</div>
+    </div>
+    <div class="output-row">
+      <div class="output-key">Root Cause</div>
+      <div class="output-val">The lz-processor Lambda (tenant: tenant-eu-west-1) is failing to write to the landing zone S3 bucket due to missing s3:PutObject permissions on the execution role. All 47 failures share the same error_code S3_PUT_FAILED and have retry_count=3, indicating all retries were exhausted. The issue started at 14:00 UTC correlating with a policy change in the IAM stack deployment.</div>
+    </div>
+    <div class="output-row">
+      <div class="output-key">Immediate Action</div>
+      <div class="output-val" style="color:var(--accent2)">Check IAM role arn:aws:iam::123456789:role/dp-lz-role for missing s3:PutObject on bucket dp-landing-zone-usw2 and temporarily attach the AdministratorAccess policy to unblock processing.</div>
+    </div>
+    <div class="output-row">
+      <div class="output-key">Likely Fix</div>
+      <div class="output-val">Add s3:PutObject and s3:GetBucketLocation to the Lambda execution role policy in infra/iam/dp-lz-role.tf and redeploy the IAM stack via Terraform.</div>
+    </div>
+    <div class="output-row">
+      <div class="output-key">Affected Files</div>
+      <div class="output-val">dp-lz-s3-event-processor · infra/iam/dp-lz-role.tf · config/s3-policy.json</div>
+    </div>
+    <div class="output-row">
+      <div class="output-key">Escalation Path</div>
+      <div class="output-val muted">Escalate to #platform-infra if IAM role is managed by another team, or open AWS support ticket if propagation takes &gt;15 min.</div>
+    </div>
+    <div class="output-row" style="margin-bottom:0">
+      <div class="output-key">CloudWatch Link</div>
+      <div class="output-val"><span style="color:var(--accent);text-decoration:underline;cursor:pointer">🔗 Open in CloudWatch Logs Insights →</span></div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+    <div class="card" style="padding:18px 20px">
+      <div style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Executive Summary</div>
+      <p style="font-size:13px">47 failures in lz-processor due to S3 permission error post-deploy. 1 additional group in harmonization (timeout). Immediate IAM fix required to unblock processing.</p>
+    </div>
+    <div class="card" style="padding:18px 20px">
+      <div style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Stats</div>
+      <p style="font-size:13px">Total Failures: <strong>52</strong><br>Root Cause Groups: <strong>2</strong><br>Time Range: <strong>1h</strong></p>
+    </div>
+    <div class="card" style="padding:18px 20px">
+      <div style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Failure Categories</div>
+      <p style="font-size:13px">Resource (S3 perm): 47<br>Timeout (harmonization): 5<br>Total groups: 2</p>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     SLIDE 10 — METRICS
+══════════════════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-metrics">
+  <p class="slide-label">Impact &amp; Metrics</p>
+  <h2 class="slide-title">Time saved per incident</h2>
+  <p class="slide-subtitle">Measured against the manual 4-step RCA process for a typical 50-record pipeline failure.</p>
+
+  <div class="card-grid card-grid-3" style="margin-bottom:32px">
+    <div class="metric-card">
+      <div class="metric-before">⏱ Manual: 15–30 min</div>
+      <div class="metric-big green">&lt; 30s</div>
+      <div class="metric-label">Athena query + failure discovery</div>
+      <div class="metric-after">✓ AI-RCA: Instant on button click</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-before">⏱ Manual: 20–45 min</div>
+      <div class="metric-big orange">&lt; 60s</div>
+      <div class="metric-label">CloudWatch query authoring + log review</div>
+      <div class="metric-after">✓ AI-RCA: Generated + executed automatically</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-before">⏱ Manual: 30–60 min</div>
+      <div class="metric-big blue">&lt; 90s</div>
+      <div class="metric-label">Full RCA report with groups &amp; fix recommendations</div>
+      <div class="metric-after">✓ AI-RCA: Instant after analyze click</div>
+    </div>
+  </div>
+
+  <div class="card-grid card-grid-2">
+    <div class="card">
+      <h3 style="margin-bottom:16px">Total Time Comparison</h3>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px">
+            <span>Manual Investigation</span>
+            <span style="color:var(--red);font-weight:700">1 – 3 hours</span>
+          </div>
+          <div style="background:rgba(239,68,68,.15);border-radius:100px;height:10px;overflow:hidden">
+            <div style="background:var(--red);width:100%;height:100%;border-radius:100px"></div>
+          </div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px">
+            <span>AI-RCA (end-to-end)</span>
+            <span style="color:var(--green);font-weight:700">60 – 120 seconds</span>
+          </div>
+          <div style="background:rgba(34,197,94,.15);border-radius:100px;height:10px;overflow:hidden">
+            <div style="background:var(--green);width:2%;height:100%;border-radius:100px"></div>
+          </div>
+        </div>
+        <p style="font-size:13px;color:var(--text-muted);margin-top:6px">
+          <strong style="color:var(--green);font-size:18px">~98%</strong> reduction in mean time to root cause (MTRC)
+        </p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-bottom:16px">Who benefits &amp; how much</h3>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:8px 0;border-bottom:1px solid var(--border)">
+          <span>👨‍💻 On-Call SRE (per incident)</span>
+          <span style="color:var(--green);font-weight:700">−60 to −170 min</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:8px 0;border-bottom:1px solid var(--border)">
+          <span>📊 QA Engineer (per deploy validation)</span>
+          <span style="color:var(--green);font-weight:700">−45 to −90 min</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:8px 0;border-bottom:1px solid var(--border)">
+          <span>🧑‍💼 Tech Lead (per status report)</span>
+          <span style="color:var(--green);font-weight:700">−30 to −60 min</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:8px 0">
+          <span>🚫 Knowledge barrier eliminated</span>
+          <span style="color:var(--accent);font-weight:700">Junior can run RCA</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout" style="margin-top:24px">
+    <strong>Key insight:</strong> The biggest win is not just time — it's removing the prerequisite knowledge barrier.
+    Any team member can now run a full RCA without knowing Athena SQL, CloudWatch Insights syntax, log group names,
+    or which error codes belong to which components.
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     SLIDE 11 — ROADMAP
+══════════════════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-roadmap">
+  <p class="slide-label">Roadmap</p>
+  <h2 class="slide-title">Phase 1 Done · Phase 2 Parked<br>as Future Pipeline</h2>
+  <p class="slide-subtitle">The data model and orchestrator structure are already in place to support the reprocessing phase.</p>
+
+  <div class="card" style="margin-bottom:24px">
+    <div class="roadmap-item">
+      <div class="roadmap-badge rb-done">✓ Done</div>
+      <div class="roadmap-text">
+        <h4>Phase 1 — AI-Powered RCA Investigation</h4>
+        <p>Full two-step web UI: Athena failure fetch → AI analysis with CloudWatch + LLM → grouped root causes, executive summary, one-click CloudWatch deep-links, snapshot audit trail.</p>
+      </div>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-badge rb-done">✓ Done</div>
+      <div class="roadmap-text">
+        <h4>Runtime Config Panel</h4>
+        <p>Slide-in drawer to update AWS credentials (Key ID, Secret, Session Token), Region, Athena DB/Table, and LLM model — all at runtime without touching <code style="background:rgba(0,0,0,.2);padding:1px 6px;border-radius:4px;font-size:11px">.env</code> or restarting the server. Model list auto-populated live from the Navify API. Drawer auto-closes on successful save.</p>
+      </div>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-badge rb-future">Future</div>
+      <div class="roadmap-text">
+        <h4>Phase 2 — Automated Reprocessing Pipeline</h4>
+        <p>After root cause is identified, allow the user to select failure groups and trigger re-submission of failed records back into the pipeline. Uses <code style="background:rgba(0,0,0,.3);padding:1px 6px;border-radius:4px;font-size:11px">file_trace_id</code>, <code style="background:rgba(0,0,0,.3);padding:1px 6px;border-radius:4px;font-size:11px">device_id</code>, <code style="background:rgba(0,0,0,.3);padding:1px 6px;border-radius:4px;font-size:11px">stage</code>, and <code style="background:rgba(0,0,0,.3);padding:1px 6px;border-radius:4px;font-size:11px">retry_count</code> already captured in FailureRecord. Scaffolded as <code style="background:rgba(0,0,0,.3);padding:1px 6px;border-radius:4px;font-size:11px">roca_orchestrator.py</code>.</p>
+      </div>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-badge rb-future">Future</div>
+      <div class="roadmap-text">
+        <h4>Failure Trend Dashboard</h4>
+        <p>Aggregate historical snapshots (already stored in <code style="background:rgba(0,0,0,.3);padding:1px 6px;border-radius:4px;font-size:11px">./snapshots/</code>) to show failure rate trends, top error codes, and MTTF/MTTR metrics across time periods and components.</p>
+      </div>
+    </div>
+
+    <div class="roadmap-item">
+      <div class="roadmap-badge rb-stretch">Stretch</div>
+      <div class="roadmap-text">
+        <h4>Third-Party Integration Hub</h4>
+        <p>Rich integration capabilities planned — automatically push the executive summary and CloudWatch deep-links to <strong>Jira</strong> (auto-create tickets), <strong>Slack</strong> (channel notifications), and <strong>email</strong> (stakeholder alerts) when failures exceed a configurable threshold. No manual copy-paste, no context-switching.</p>
+      </div>
+    </div>
+    <div class="roadmap-item" style="border-bottom:none">
+      <div class="roadmap-badge rb-stretch">Stretch</div>
+      <div class="roadmap-text">
+        <h4>Predictive Failure Detection</h4>
+        <p>Feed historical snapshot data into an ML model to predict which components are likely to fail before they do, based on retry_count trends and error pattern signals.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     SLIDE 12 — CLOSING
+══════════════════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-close">
+  <div class="close-logo">⚙</div>
+  <p class="slide-label">Roche DS Platform · Hackathon 2026</p>
+  <h2 class="slide-title" style="text-align:center">
+    AI Root Cause Analyzer<br>
+    <span style="color:var(--accent)">From failure to fix in 60 seconds.</span>
+  </h2>
+  <p class="hero-sub" style="text-align:center;margin:0 auto 40px">
+    Built with FastAPI · Amazon Athena · CloudWatch Logs Insights · Claude AI (Navify Enrichment API)
+  </p>
+  <div class="hero-pills" style="justify-content:center">
+    <span class="pill"><span class="dot"></span>Phase 1 — Complete</span>
+    <span class="pill"><span class="dot orange"></span>~98% MTRC Reduction</span>
+    <span class="pill"><span class="dot blue"></span>Zero prerequisite knowledge needed</span>
+    <span class="pill"><span class="dot purple"></span>Phase 2 — Reprocessing Pipeline (Roadmap)</span>
+  </div>
+</div>
+
+</body>
+</html>
