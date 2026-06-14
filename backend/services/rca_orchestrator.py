@@ -3,6 +3,7 @@ import logging
 import os
 from datetime import UTC, datetime
 
+from ..agents.code_analysis_agent import CodeAnalysisAgent
 from ..config import settings
 from ..models.schemas import AnalyzeResponse, FailureGroup, FailureRecord, FailuresResponse
 from ..strategies.data_source import DataSourceStrategy
@@ -53,10 +54,15 @@ class RCAOrchestrator:
         data_source: DataSourceStrategy,
         llm: LLMStrategy,
         log_backend: LogAnalysisStrategy,
+        log_backend_provider: str | None = None,
+        code_analysis_agent: CodeAnalysisAgent | None = None,
     ):
         self.data_source = data_source
         self.llm = llm
         self.log_backend = log_backend
+        # Determines which query-language prompt (_QUERY_LANGUAGE) to use in Step 3.
+        self.log_backend_provider = log_backend_provider or settings.log_analysis_provider
+        self.code_analysis_agent = code_analysis_agent or CodeAnalysisAgent()
 
     # ------------------------------------------------------------------ #
     #  Step 1 — Fetch failures from the configured data source            #
@@ -134,7 +140,7 @@ class RCAOrchestrator:
         logger.info("Step 2/4: Summarising failures with LLM")
         failure_summary = self._summarize_failures(failures)
 
-        logger.info("Step 3/4: Generating %s queries", settings.log_analysis_provider)
+        logger.info("Step 3/4: Generating %s queries", self.log_backend_provider)
         log_queries = self._generate_log_queries(failures, failure_summary)
         logger.info("Generated %d log query/queries", len(log_queries))
 
@@ -157,6 +163,9 @@ class RCAOrchestrator:
 
         summary = self._executive_summary(groups)
 
+        logger.info("Step 5/5: Looking up related code changes (GitHub MCP)")
+        code_analysis = self._analyze_code_changes(time_range, start_date, end_date)
+
         logger.info(
             "RCA complete  total_failures=%d  groups=%d", len(failures), len(groups)
         )
@@ -167,7 +176,18 @@ class RCAOrchestrator:
             analyzed_at=datetime.now(UTC).isoformat(),
             failure_groups=groups,
             summary=summary,
+            code_analysis=code_analysis,
         )
+
+    # ------------------------------------------------------------------ #
+    #  Step 5 – Related code changes via GitHub MCP                       #
+    # ------------------------------------------------------------------ #
+    def _analyze_code_changes(self, time_range: str, start_date: str | None, end_date: str | None):
+        try:
+            return self.code_analysis_agent.analyze(time_range, start_date=start_date, end_date=end_date)
+        except Exception as exc:
+            logger.warning("Code analysis agent failed: %s", exc)
+            return None
 
     # ------------------------------------------------------------------ #
     #  Step 2 – Summarize failures                                         #
@@ -207,7 +227,7 @@ Respond in plain text, 5-8 lines max."""
         )
 
         language = _QUERY_LANGUAGE.get(
-            settings.log_analysis_provider, _QUERY_LANGUAGE["cloudwatch"]
+            self.log_backend_provider, _QUERY_LANGUAGE["cloudwatch"]
         )
 
         prompt = f"""You are an expert in {language["name"]}.

@@ -4,17 +4,21 @@ from .strategies.llm import LLMStrategy
 from .strategies.log_analysis import LogAnalysisStrategy
 
 
-def get_data_source() -> DataSourceStrategy:
+def get_data_source(override: str | None = None) -> DataSourceStrategy:
     if settings.local_data_file:
         from .providers.data_source.local_file import LocalFileDataSource
         return LocalFileDataSource(settings.local_data_file)
 
-    match settings.data_source_provider:
+    provider = override or settings.data_source_provider
+    match provider:
         case "athena":
             from .providers.data_source.athena import AthenaDataSource
             return AthenaDataSource()
+        case "postgres":
+            from .providers.data_source.postgres import PostgresDataSource
+            return PostgresDataSource()
         case _:
-            raise ValueError(f"Unknown data_source_provider: {settings.data_source_provider}")
+            raise ValueError(f"Unknown data_source_provider: {provider}")
 
 
 def get_llm() -> LLMStrategy:
@@ -22,12 +26,16 @@ def get_llm() -> LLMStrategy:
         case "navify" | "openai":
             from .providers.llm.navify import NavifyLLMProvider
             return NavifyLLMProvider()
+        case "anthropic":
+            from .providers.llm.anthropic_provider import AnthropicLLMProvider
+            return AnthropicLLMProvider()
         case _:
             raise ValueError(f"Unknown llm_provider: {settings.llm_provider}")
 
 
-def get_log_backend() -> LogAnalysisStrategy:
-    match settings.log_analysis_provider:
+def get_log_backend(override: str | None = None) -> LogAnalysisStrategy:
+    provider = override or settings.log_analysis_provider
+    match provider:
         case "cloudwatch":
             from .providers.log_analysis.cloudwatch import CloudWatchLogBackend
             return CloudWatchLogBackend()
@@ -39,4 +47,4 @@ def get_log_backend() -> LogAnalysisStrategy:
                 datasource_uid=settings.grafana_datasource_uid,
             )
         case _:
-            raise ValueError(f"Unknown log_analysis_provider: {settings.log_analysis_provider}")
+            raise ValueError(f"Unknown log_analysis_provider: {provider}")

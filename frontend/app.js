@@ -15,6 +15,8 @@ const statusBadge         = document.getElementById("status-badge");
 const errorBanner         = document.getElementById("error-banner");
 const dateFrom            = document.getElementById("date-from");
 const dateTo              = document.getElementById("date-to");
+const dataSourceSelect    = document.getElementById("data-source-select");
+const logBackendSelect    = document.getElementById("log-backend-select");
 
 // Step 1 — failures table
 const failuresSection     = document.getElementById("failures-section");
@@ -35,6 +37,9 @@ const statTotal           = document.getElementById("stat-total");
 const statGroups          = document.getElementById("stat-groups");
 const statRange           = document.getElementById("stat-range");
 const groupsContainer     = document.getElementById("groups-container");
+const codeAnalysisCard    = document.getElementById("code-analysis-card");
+const codeAnalysisMeta    = document.getElementById("code-analysis-meta");
+const codeAnalysisList    = document.getElementById("code-analysis-list");
 
 // ── Date picker helpers ───────────────────────────────────────────────────────
 /** Return a datetime-local string ("YYYY-MM-DDTHH:MM") for a given Date object. */
@@ -62,6 +67,33 @@ function getDateRange() {
 
 // Auto-fill date pickers on page load with the default quick range (1h)
 applyQuickRange(selectedRange);
+
+// ── Providers (data source / log backend) ──────────────────────────────────────
+async function loadProviders() {
+  try {
+    const resp = await fetch(`${API_BASE}/api/providers`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+
+    populateProviderSelect(dataSourceSelect, data.data_sources, data.defaults.data_source);
+    populateProviderSelect(logBackendSelect, data.log_backends, data.defaults.log_backend);
+  } catch (e) {
+    console.error("Failed to load providers:", e);
+  }
+}
+
+function populateProviderSelect(select, options, defaultId) {
+  select.innerHTML = "";
+  (options || []).forEach((opt) => {
+    const el = document.createElement("option");
+    el.value = opt.id;
+    el.textContent = opt.label;
+    if (opt.id === defaultId) el.selected = true;
+    select.appendChild(el);
+  });
+}
+
+loadProviders();
 
 // ── Time-range buttons ────────────────────────────────────────────────────────
 document.getElementById("time-range-group").addEventListener("click", (e) => {
@@ -110,6 +142,7 @@ async function fetchFailures() {
     }
     const component = componentInput.value.trim();
     if (component) body.component = component;
+    if (dataSourceSelect.value) body.data_source = dataSourceSelect.value;
 
     const response = await fetch(`${API_BASE}/api/failures`, {
       method: "POST",
@@ -162,6 +195,8 @@ async function runRCA() {
       body.start_date = dates.start_date;
       body.end_date   = dates.end_date;
     }
+    if (logBackendSelect.value) body.log_backend = logBackendSelect.value;
+
     const response = await fetch(`${API_BASE}/api/analyze`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -338,8 +373,62 @@ function renderResults(data) {
     groupsContainer.appendChild(buildGroupCard(group));
   });
 
+  renderCodeAnalysis(data.code_analysis);
+
   resultsSection.classList.remove("hidden");
   resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function renderCodeAnalysis(codeAnalysis) {
+  codeAnalysisList.innerHTML = "";
+
+  if (!codeAnalysis) {
+    codeAnalysisCard.classList.add("hidden");
+    return;
+  }
+
+  codeAnalysisCard.classList.remove("hidden");
+  codeAnalysisMeta.textContent = `Repository: ${codeAnalysis.repo}`;
+
+  if (codeAnalysis.error) {
+    codeAnalysisList.innerHTML = `<p class="code-analysis-error">${escHtml(codeAnalysis.error)}</p>`;
+    return;
+  }
+
+  if (!codeAnalysis.items || codeAnalysis.items.length === 0) {
+    codeAnalysisList.innerHTML = `<p class="code-analysis-empty">No recent commits or pull requests found in this time window.</p>`;
+    return;
+  }
+
+  codeAnalysis.items.forEach((item) => {
+    const row = document.createElement("div");
+    row.className = "code-analysis-item";
+
+    const badge = document.createElement("span");
+    badge.className = `code-analysis-badge code-analysis-badge--${item.type}`;
+    badge.textContent = item.type === "pull_request" ? "PR" : "Commit";
+
+    const title = document.createElement(item.url ? "a" : "span");
+    title.className = "code-analysis-title";
+    title.textContent = item.title || "(no title)";
+    if (item.url) {
+      title.href = item.url;
+      title.target = "_blank";
+      title.rel = "noopener noreferrer";
+    }
+
+    const meta = document.createElement("span");
+    meta.className = "code-analysis-item-meta";
+    const parts = [];
+    if (item.author) parts.push(item.author);
+    if (item.date) parts.push(formatDate(item.date));
+    meta.textContent = parts.join(" · ");
+
+    row.appendChild(badge);
+    row.appendChild(title);
+    row.appendChild(meta);
+    codeAnalysisList.appendChild(row);
+  });
 }
 
 function buildGroupCard(group) {
@@ -475,6 +564,8 @@ function hideResults() {
   resultsSection.classList.add("hidden");
   emptyState.classList.add("hidden");
   groupsContainer.innerHTML = "";
+  codeAnalysisCard.classList.add("hidden");
+  codeAnalysisList.innerHTML = "";
 }
 
 // ── Time-range buttons ────────────────────────────────────────────────────────
@@ -527,9 +618,21 @@ const cfgRegion  = document.getElementById("cfg-region");
 const cfgDb      = document.getElementById("cfg-db");
 const cfgTable   = document.getElementById("cfg-table");
 const cfgModel   = document.getElementById("cfg-model");
+const cfgGrafanaUrl = document.getElementById("cfg-grafana-url");
+const cfgGrafanaKey = document.getElementById("cfg-grafana-key");
+const cfgGrafanaUid = document.getElementById("cfg-grafana-uid");
+const cfgDbUrl      = document.getElementById("cfg-db-url");
+const cfgDbStatus   = document.getElementById("cfg-db-status");
+const cfgGithubRepo = document.getElementById("cfg-github-repo");
+const cfgGithubToken = document.getElementById("cfg-github-token");
+const cfgGithubMcpCommand = document.getElementById("cfg-github-mcp-command");
+const cfgAnthropicKey = document.getElementById("cfg-anthropic-key");
 
 const cfgSecretHint = document.getElementById("cfg-secret-hint");
 const cfgTokenHint  = document.getElementById("cfg-token-hint");
+const cfgGrafanaKeyHint = document.getElementById("cfg-grafana-key-hint");
+const cfgGithubTokenHint = document.getElementById("cfg-github-token-hint");
+const cfgAnthropicKeyHint = document.getElementById("cfg-anthropic-key-hint");
 
 async function openCfgDrawer() {
   cfgDrawer.classList.remove("hidden");
@@ -579,6 +682,37 @@ async function loadConfig() {
       ? "✔ Value set (leave blank to keep)"
       : "⚠ Not set";
     cfgTokenHint.style.color = cfg.aws_session_token_set ? "var(--success)" : "var(--warning)";
+
+    // Grafana / Loki
+    cfgGrafanaUrl.value = cfg.grafana_loki_url    || "";
+    cfgGrafanaUid.value = cfg.grafana_datasource_uid || "";
+    cfgGrafanaKey.value = "";
+    cfgGrafanaKeyHint.textContent = cfg.grafana_api_key_set
+      ? "✔ Value set (leave blank to keep)"
+      : "⚠ Not set";
+    cfgGrafanaKeyHint.style.color = cfg.grafana_api_key_set ? "var(--success)" : "var(--warning)";
+
+    // Local Database (Postgres) — read-only status
+    cfgDbUrl.textContent = cfg.database_url_masked || "-";
+    cfgDbStatus.textContent = cfg.database_connected ? "✔ Connected" : "✖ Not reachable";
+    cfgDbStatus.style.color = cfg.database_connected ? "var(--success)" : "var(--danger)";
+
+    // GitHub (Code Analysis Agent)
+    cfgGithubRepo.value = cfg.github_repo || "";
+    cfgGithubMcpCommand.value = cfg.github_mcp_command || "";
+    cfgGithubToken.value = "";
+    cfgGithubTokenHint.textContent = cfg.github_token_set
+      ? "✔ Value set (leave blank to keep)"
+      : "⚠ Not set";
+    cfgGithubTokenHint.style.color = cfg.github_token_set ? "var(--success)" : "var(--warning)";
+
+    // Anthropic LLM
+    cfgAnthropicKey.value = "";
+    cfgAnthropicKeyHint.textContent = cfg.anthropic_api_key_set
+      ? "✔ Value set (leave blank to keep)"
+      : "⚠ Not set";
+    cfgAnthropicKeyHint.style.color = cfg.anthropic_api_key_set ? "var(--success)" : "var(--warning)";
+
     // Set model after models are loaded
     cfgModel.dataset.currentModel = cfg.llm_model || "";
   } catch (e) {
@@ -639,6 +773,13 @@ async function saveConfig() {
   if (cfgDb.value.trim())      body.athena_database    = cfgDb.value.trim();
   if (cfgTable.value.trim())   body.athena_table       = cfgTable.value.trim();
   if (cfgModel.value)          body.llm_model          = cfgModel.value;
+  if (cfgGrafanaUrl.value.trim()) body.grafana_loki_url     = cfgGrafanaUrl.value.trim();
+  if (cfgGrafanaKey.value.trim()) body.grafana_api_key      = cfgGrafanaKey.value.trim();
+  if (cfgGrafanaUid.value.trim()) body.grafana_datasource_uid = cfgGrafanaUid.value.trim();
+  if (cfgGithubRepo.value.trim()) body.github_repo          = cfgGithubRepo.value.trim();
+  if (cfgGithubToken.value.trim()) body.github_token        = cfgGithubToken.value.trim();
+  if (cfgGithubMcpCommand.value.trim()) body.github_mcp_command = cfgGithubMcpCommand.value.trim();
+  if (cfgAnthropicKey.value.trim()) body.anthropic_api_key = cfgAnthropicKey.value.trim();
 
   try {
     const resp = await fetch(`${API_BASE}/api/config`, {
@@ -676,3 +817,198 @@ function showCfgBanner(msg, type) {
   cfgSaveBanner.className = `cfg-save-banner cfg-save-banner--${type}`;
   cfgSaveBanner.classList.remove("hidden");
 }
+
+// ── Page navigation ─────────────────────────────────────────────────────────────
+const rcaPage    = document.getElementById("rca-page");
+const sourcePage = document.getElementById("source-page");
+
+document.querySelectorAll(".page-nav-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".page-nav-btn").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+
+    const target = btn.dataset.page;
+    rcaPage.classList.toggle("hidden", target !== "rca-page");
+    sourcePage.classList.toggle("hidden", target !== "source-page");
+
+    if (target === "source-page") {
+      loadGithubPage();
+    }
+  });
+});
+
+// ── Source Code Intelligence ─────────────────────────────────────────────────────
+const githubRepoName     = document.getElementById("github-repo-name");
+const githubRepoDesc     = document.getElementById("github-repo-desc");
+const githubRepoLink     = document.getElementById("github-repo-link");
+const githubNotConfigured = document.getElementById("github-not-configured");
+const githubError         = document.getElementById("github-error");
+const githubBranchesList  = document.getElementById("github-branches-list");
+const githubPrsList       = document.getElementById("github-prs-list");
+const githubBranchesRefresh = document.getElementById("github-branches-refresh");
+const githubPrsRefresh      = document.getElementById("github-prs-refresh");
+const githubPrStateGroup    = document.getElementById("github-pr-state-group");
+
+let githubPrState = "open";
+let githubLoaded = false;
+
+function loadGithubPage() {
+  loadGithubRepo();
+  loadGithubBranches();
+  loadGithubPullRequests();
+  githubLoaded = true;
+}
+
+async function loadGithubRepo() {
+  githubError.classList.add("hidden");
+  githubNotConfigured.classList.add("hidden");
+  try {
+    const resp = await fetch(`${API_BASE}/api/github/repo`);
+    const data = await resp.json();
+
+    if (!data.configured) {
+      githubNotConfigured.classList.remove("hidden");
+      githubRepoName.textContent = "-";
+      githubRepoDesc.textContent = "";
+      githubRepoLink.classList.add("hidden");
+      return;
+    }
+
+    githubRepoName.textContent = data.repo || "-";
+    githubRepoDesc.textContent = data.description || "";
+
+    if (data.url) {
+      githubRepoLink.href = data.url;
+      githubRepoLink.classList.remove("hidden");
+    } else {
+      githubRepoLink.classList.add("hidden");
+    }
+
+    if (data.error) {
+      githubError.textContent = data.error;
+      githubError.classList.remove("hidden");
+    }
+  } catch (e) {
+    console.error("Failed to load repo info:", e);
+    githubError.textContent = `Failed to load repository info: ${e.message}`;
+    githubError.classList.remove("hidden");
+  }
+}
+
+async function loadGithubBranches() {
+  githubBranchesList.innerHTML = `<p class="code-analysis-empty">Loading…</p>`;
+  try {
+    const resp = await fetch(`${API_BASE}/api/github/branches`);
+    const data = await resp.json();
+
+    if (data.error) {
+      githubBranchesList.innerHTML = `<p class="code-analysis-error">${escHtml(data.error)}</p>`;
+      return;
+    }
+
+    if (!data.branches || data.branches.length === 0) {
+      githubBranchesList.innerHTML = `<p class="code-analysis-empty">No branches found.</p>`;
+      return;
+    }
+
+    githubBranchesList.innerHTML = "";
+    data.branches.forEach((b) => {
+      const row = document.createElement("div");
+      row.className = "github-branch-item";
+
+      const name = document.createElement("span");
+      name.className = "github-branch-name";
+      name.textContent = b.name;
+      row.appendChild(name);
+
+      if (b.protected) {
+        const badge = document.createElement("span");
+        badge.className = "github-protected-badge";
+        badge.textContent = "Protected";
+        row.appendChild(badge);
+      }
+
+      if (b.sha) {
+        const sha = document.createElement("span");
+        sha.className = "github-branch-sha";
+        sha.textContent = b.sha.slice(0, 7);
+        row.appendChild(sha);
+      }
+
+      githubBranchesList.appendChild(row);
+    });
+  } catch (e) {
+    console.error("Failed to load branches:", e);
+    githubBranchesList.innerHTML = `<p class="code-analysis-error">Failed to load branches: ${escHtml(e.message)}</p>`;
+  }
+}
+
+async function loadGithubPullRequests() {
+  githubPrsList.innerHTML = `<p class="code-analysis-empty">Loading…</p>`;
+  try {
+    const resp = await fetch(`${API_BASE}/api/github/pull-requests?state=${githubPrState}`);
+    const data = await resp.json();
+
+    if (data.error) {
+      githubPrsList.innerHTML = `<p class="code-analysis-error">${escHtml(data.error)}</p>`;
+      return;
+    }
+
+    if (!data.pull_requests || data.pull_requests.length === 0) {
+      githubPrsList.innerHTML = `<p class="code-analysis-empty">No pull requests found.</p>`;
+      return;
+    }
+
+    githubPrsList.innerHTML = "";
+    data.pull_requests.forEach((pr) => {
+      const row = document.createElement("div");
+      row.className = "github-pr-item";
+
+      const number = document.createElement("span");
+      number.className = "github-pr-number";
+      number.textContent = `#${pr.number}`;
+      row.appendChild(number);
+
+      const title = document.createElement(pr.url ? "a" : "span");
+      title.className = "github-pr-title";
+      title.textContent = pr.title || "(no title)";
+      if (pr.url) {
+        title.href = pr.url;
+        title.target = "_blank";
+        title.rel = "noopener noreferrer";
+      }
+      row.appendChild(title);
+
+      const state = document.createElement("span");
+      state.className = `github-pr-state github-pr-state--${pr.state}`;
+      state.textContent = pr.state;
+      row.appendChild(state);
+
+      const meta = document.createElement("span");
+      meta.className = "github-pr-meta";
+      const parts = [];
+      if (pr.author) parts.push(pr.author);
+      if (pr.branch) parts.push(pr.branch);
+      if (pr.updated_at) parts.push(formatDate(pr.updated_at));
+      meta.textContent = parts.join(" · ");
+      row.appendChild(meta);
+
+      githubPrsList.appendChild(row);
+    });
+  } catch (e) {
+    console.error("Failed to load pull requests:", e);
+    githubPrsList.innerHTML = `<p class="code-analysis-error">Failed to load pull requests: ${escHtml(e.message)}</p>`;
+  }
+}
+
+githubBranchesRefresh.addEventListener("click", loadGithubBranches);
+githubPrsRefresh.addEventListener("click", loadGithubPullRequests);
+
+githubPrStateGroup.addEventListener("click", (e) => {
+  const btn = e.target.closest(".btn-range");
+  if (!btn) return;
+  githubPrStateGroup.querySelectorAll(".btn-range").forEach((b) => b.classList.remove("active"));
+  btn.classList.add("active");
+  githubPrState = btn.dataset.state;
+  loadGithubPullRequests();
+});

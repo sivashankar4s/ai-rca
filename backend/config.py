@@ -37,20 +37,32 @@ class Settings(BaseSettings):
     # Custom LLM (OpenAI-compatible)
     llm_base_url: str = "https://enrichment-dev-nightly.usw2.ds.platform.navify.com"
     llm_api_key: str = ""
-    llm_model: str = "gpt-4o"
+    llm_model: str = "claude-sonnet-4-6"
+
+    # Anthropic Claude (direct API) — used when LLM_PROVIDER=anthropic
+    anthropic_api_key: str = ""                   # ANTHROPIC_API_KEY
 
     # CRM persistence (Postgres via SQLAlchemy + Alembic)
     database_url: str = "postgresql+psycopg2://airca:airca@localhost:5432/airca"
 
     # Provider selection (Strategy Pattern)
     data_source_provider: str = "athena"          # DATA_SOURCE_PROVIDER env var
-    llm_provider: str = "navify"                  # LLM_PROVIDER env var
+    llm_provider: str = "anthropic"               # LLM_PROVIDER env var (anthropic | navify | openai)
     log_analysis_provider: str = "cloudwatch"     # LOG_ANALYSIS_PROVIDER env var
 
     # Grafana / Loki (only needed when log_analysis_provider = "grafana_loki")
     grafana_loki_url: str = ""                    # GRAFANA_LOKI_URL
     grafana_api_key: str = ""                     # GRAFANA_API_KEY
     grafana_datasource_uid: str = ""              # GRAFANA_DATASOURCE_UID (for deep links)
+
+    # GitHub MCP (Code Analysis Agent) — looks up recent commits/PRs related to a failure
+    # Full command line to launch the GitHub MCP server over stdio, e.g.:
+    #   github-mcp-server stdio
+    #   C:\tools\github-mcp-server.exe stdio
+    #   docker run -i --rm -e GITHUB_PERSONAL_ACCESS_TOKEN ghcr.io/github/github-mcp-server
+    github_mcp_command: str = "github-mcp-server stdio"  # GITHUB_MCP_COMMAND
+    github_token: str = ""                          # GITHUB_TOKEN - PAT passed to the MCP server
+    github_repo: str = ""                           # GITHUB_REPO - "owner/repo" to inspect
 
     def validate_required(self) -> None:
         """Raise ValueError for missing or placeholder configuration values."""

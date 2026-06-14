@@ -11,20 +11,58 @@ import logging
 from sqlalchemy.orm import Session
 
 from ..db.models import FailureRecord as FailureRecordModel
-from ..models.schemas import AnalyzeResponse, FailureRecord
+from ..models.schemas import AnalyzeResponse, FailureRecord, FailuresResponse
 from ..repositories import case_repo, failure_repo, project_repo, signature_repo
 from .signature_service import compute_signature_hash, match_or_create_signature
 
 logger = logging.getLogger(__name__)
 
 
+def persist_fetched_records(db: Session, response: FailuresResponse) -> int:
+    """Persist Step-1 fetched failure records to `failure_records`.
+
+    Records already stored for this project (matched by `file_trace_id`,
+    i.e. `custom_key1`) are skipped so re-fetching the same time range
+    doesn't create duplicates. Records without a `custom_key1` are always
+    inserted, since there's nothing to dedupe on.
+    """
+    project = project_repo.get_or_create_default_project(db)
+
+    trace_ids = [r.custom_key1 for r in response.records if r.custom_key1]
+    existing = failure_repo.get_existing_trace_ids(db, project.id, trace_ids)
+
+    new_records = [
+        r for r in response.records if not (r.custom_key1 and r.custom_key1 in existing)
+    ]
+
+    if new_records:
+        failure_repo.bulk_create_failure_records(db, project.id, new_records)
+        db.commit()
+
+    logger.info(
+        "Persisted fetched failure records: project=%s new=%d skipped=%d",
+        project.name,
+        len(new_records),
+        len(response.records) - len(new_records),
+    )
+    return len(new_records)
+
+
 def persist_analysis(db: Session, response: AnalyzeResponse) -> None:
     """Persist failure records, RCA cases, activity, and signature matches."""
     project = project_repo.get_or_create_default_project(db)
 
-    # Track failure records already persisted in this call (by file_trace_id) to
-    # avoid duplicating rows shared across multiple groups.
-    persisted: dict[str, FailureRecordModel] = {}
+    # Pre-load rows already persisted by Step 1 (/api/failures), keyed by file_trace_id,
+    # so we link to them instead of inserting duplicates.
+    trace_ids = [
+        record.custom_key1
+        for group in response.failure_groups
+        for record in group.records
+        if record.custom_key1
+    ]
+    persisted: dict[str, FailureRecordModel] = failure_repo.get_by_trace_ids(
+        db, project.id, trace_ids
+    )
 
     for group in response.failure_groups:
         failure_rows = []
