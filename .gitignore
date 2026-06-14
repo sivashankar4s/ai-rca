@@ -1,6 +1,7 @@
 .env
 snapshots/
 snapshots/*
+tools/
 *.pyc
 *.pyo
 __pycache__

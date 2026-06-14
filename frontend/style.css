@@ -56,6 +56,37 @@ body {
 .brand p  { font-size: 12px; color: rgba(255,255,255,0.75); margin-top: 2px; }
 
 /* ============================================================
+   Page navigation
+   ============================================================ */
+.page-nav {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.page-nav-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  gap: 4px;
+  padding: 0 20px;
+}
+
+.page-nav-btn {
+  border: none;
+  background: none;
+  padding: 14px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.page-nav-btn:hover  { color: var(--text); }
+.page-nav-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ============================================================
    Layout
    ============================================================ */
 .container {
@@ -159,6 +190,30 @@ body {
 
 .text-input:focus { outline: none; border-color: var(--accent); }
 .text-input::placeholder { color: var(--text-muted); }
+
+.select-input {
+  padding: 9px 14px;
+  border-radius: 6px;
+  border: 1px solid #bfdbfe;
+  background: #ffffff;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.select-input:focus { outline: none; border-color: var(--accent); }
+
+.log-backend-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.log-backend-group .select-input {
+  padding: 6px 10px;
+}
 
 .control-group--action { justify-content: flex-end; }
 
@@ -267,6 +322,177 @@ body {
   overflow: hidden;
   box-shadow: var(--shadow);
 }
+
+.code-analysis-card { margin-top: 4px; }
+
+.code-analysis-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: -4px 0 12px;
+}
+
+.code-analysis-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.code-analysis-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.code-analysis-badge {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.code-analysis-badge--commit       { background: #dbeafe; color: #1d4ed8; }
+.code-analysis-badge--pull_request { background: #dcfce7; color: #15803d; }
+
+.code-analysis-title {
+  flex: 1;
+  color: var(--text);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.code-analysis-title:hover { text-decoration: underline; }
+
+.code-analysis-item-meta {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.code-analysis-error,
+.code-analysis-empty {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ============================================================
+   Source Code Intelligence page
+   ============================================================ */
+.github-repo-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.github-repo-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin-top: 4px;
+}
+
+.github-repo-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.github-repo-link {
+  flex: 0 0 auto;
+  text-decoration: none;
+}
+
+.github-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.github-section-header .section-title { margin-bottom: 0; }
+
+.github-branches-list,
+.github-prs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.github-branch-item,
+.github-pr-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.github-branch-name {
+  flex: 1;
+  font-family: "Fira Code", "Cascadia Code", Consolas, monospace;
+  color: var(--text);
+}
+
+.github-branch-sha {
+  font-family: "Fira Code", "Cascadia Code", Consolas, monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.github-protected-badge {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #fef9c3;
+  color: #92400e;
+  white-space: nowrap;
+}
+
+.github-pr-number {
+  flex: 0 0 auto;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.github-pr-title {
+  flex: 1;
+  color: var(--text);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.github-pr-title:hover { text-decoration: underline; }
+
+.github-pr-meta {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.github-pr-state {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.github-pr-state--open   { background: #dcfce7; color: #15803d; }
+.github-pr-state--closed { background: #fee2e2; color: #991b1b; }
+.github-pr-state--merged { background: #ede9fe; color: #5b21b6; }
 
 .group-header {
   display: flex;
@@ -875,6 +1101,20 @@ body {
 .cfg-hint {
   font-size: 11px;
   font-style: italic;
+}
+
+.cfg-static-value {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: var(--text-muted);
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.mono {
+  font-family: "Fira Code", "Cascadia Code", Consolas, monospace;
 }
 
 /* ── Secret field row ────────────────────────────────────────────────────── */

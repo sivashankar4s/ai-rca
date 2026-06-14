@@ -33,9 +33,10 @@ Each failure group includes a **direct deep-link into the log backend** (CloudWa
 Logs Insights or Grafana Explore) pre-populated with the right query and time window —
 one click to see the relevant logs.
 
-Every analysis is also persisted to Postgres: failures with the same
-`(component_name, error_code, stage)` signature are linked to the same RCA case, so
-recurring issues are flagged automatically.
+Every fetched failure record is persisted to Postgres as soon as Step 1 runs (deduped
+by `file_trace_id` on re-fetch), and every analysis additionally links those records to
+an RCA case: failures with the same `(component_name, error_code, stage)` signature are
+linked to the same case, so recurring issues are flagged automatically.
 
 ---
 
@@ -74,7 +75,7 @@ abstract strategy interfaces — `DataSourceStrategy`, `LLMStrategy`,
 provider file — the orchestrator and router never change. See
 [PLUGIN_STRATEGY_PLAN.md](PLUGIN_STRATEGY_PLAN.md) for the full design.
 
-### LLM Pipeline (4 steps inside `/api/analyze`)
+### LLM Pipeline (5 steps inside `/api/analyze`)
 
 ```
 Selected failure records
@@ -89,20 +90,43 @@ Selected failure records
         │   → Collect relevant log lines
         │
    Step 4 │ RCA + grouping (LLM)
-              → JSON array of FailureGroup objects
-              → Executive summary
+        │     → JSON array of FailureGroup objects
+        │     → Executive summary
+        │
+   Step 5 │ Code Analysis Agent (GitHub MCP)
+              → Recent commits/PRs in the configured repo within the failure
+                time window — surfaced as a "Related Code Changes" card
 ```
+
+### Code Analysis Agent (GitHub MCP)
+
+`backend/agents/code_analysis_agent.py` talks to the official
+[github-mcp-server](https://github.com/github/github-mcp-server) over stdio
+(`backend/mcp/client.py`) to fetch recent commits and pull requests for a
+configured repository within the failure's time window. Configure it via
+`.env` or the Configuration drawer:
+
+- `GITHUB_MCP_COMMAND` — path/name of the `github-mcp-server` binary on PATH (default `github-mcp-server`)
+- `GITHUB_TOKEN` — a GitHub PAT, passed to the MCP server as `GITHUB_PERSONAL_ACCESS_TOKEN`
+- `GITHUB_REPO` — `owner/repo` to inspect
+
+If `GITHUB_REPO` is not set, the analysis response simply omits `code_analysis`
+(no card is shown). If `GITHUB_REPO` is set but `GITHUB_TOKEN` is missing or the
+MCP server can't be reached, the card shows an inline error instead of failing
+the whole RCA request.
 
 ### CRM Persistence
 
-Every completed analysis with failure groups is persisted to Postgres via
-`persistence_service`:
+`persistence_service` writes to Postgres at two points:
 
-- A failure-group's `(component_name, error_code, stage)` is hashed into a
-  **root-cause signature**.
-- A new signature → a new RCA case is created (`status = new`).
-- A signature seen before → the existing case is linked and re-flagged as
-  **recurring**, with an activity-log entry recording the recurrence.
+- **Step 1 (`/api/failures`)** — every fetched record is upserted into
+  `failure_records`, deduped by `file_trace_id` so repeated fetches of the same
+  time range don't create duplicate rows.
+- **Step 2 (`/api/analyze`)** — for each failure group, its
+  `(component_name, error_code, stage)` is hashed into a **root-cause signature**:
+  - A new signature → a new RCA case is created (`status = new`).
+  - A signature seen before → the existing case is linked and re-flagged as
+    **recurring**, with an activity-log entry recording the recurrence.
 
 This gives every RCA run a persistent history without any manual triage. See
 [CRM_PLAN.md](CRM_PLAN.md) for the full data model, case lifecycle, and roadmap.
@@ -316,13 +340,14 @@ Fetch `FAILED` records from the configured data source.
 
 ### `POST /api/analyze`
 
-Run the 4-step LLM RCA pipeline on selected records, then persist the results to Postgres.
+Run the 5-step LLM RCA pipeline on selected records, then persist the results to Postgres.
 
 **Request:**
 ```json
 {
   "time_range": "1h",
-  "records": [ /* array of FailureRecord objects selected from Step 1 */ ]
+  "records": [ /* array of FailureRecord objects selected from Step 1 */ ],
+  "log_backend": "cloudwatch"   // optional: "cloudwatch" | "grafana_loki", overrides LOG_ANALYSIS_PROVIDER
 }
 ```
 
@@ -349,9 +374,19 @@ Run the 4-step LLM RCA pipeline on selected records, then persist the results to
       "records": [...],
       "log_samples": [...]
     }
-  ]
+  ],
+  "code_analysis": {
+    "repo": "owner/repo",
+    "items": [
+      { "type": "commit", "title": "...", "author": "...", "date": "...", "url": "..." },
+      { "type": "pull_request", "title": "...", "author": "...", "date": "...", "url": "..." }
+    ],
+    "error": null
+  }
 }
 ```
+
+`code_analysis` is `null` if `GITHUB_REPO` is not configured.
 
 ### `GET /api/config` / `POST /api/config`
 

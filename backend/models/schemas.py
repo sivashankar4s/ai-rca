@@ -1,7 +1,11 @@
 from pydantic import BaseModel, field_validator
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Literal
 from enum import Enum
 import json as _json
+
+
+DataSourceProvider = Literal["athena", "postgres"]
+LogBackendProvider = Literal["cloudwatch", "grafana_loki"]
 
 
 class TimeRange(str, Enum):
@@ -57,6 +61,7 @@ class FailuresRequest(BaseModel):
     end_date: Optional[str] = None     # ISO local datetime e.g. "2026-05-12T12:00"
     component: Optional[str] = None
     failure_only: bool = True          # True → filter WHERE status = 'FAILED'
+    data_source: Optional[DataSourceProvider] = None  # overrides DATA_SOURCE_PROVIDER for this request
 
 
 class FailuresResponse(BaseModel):
@@ -71,6 +76,7 @@ class AnalyzeRequest(BaseModel):
     start_date: Optional[str] = None   # ISO local datetime e.g. "2026-05-12T10:00"
     end_date: Optional[str] = None     # ISO local datetime e.g. "2026-05-12T12:00"
     records: List[FailureRecord]
+    log_backend: Optional[LogBackendProvider] = None  # overrides LOG_ANALYSIS_PROVIDER for this request
 
 
 class FailureGroup(BaseModel):
@@ -90,12 +96,66 @@ class FailureGroup(BaseModel):
     cw_log_url: Optional[str] = None
 
 
+class CodeChangeItem(BaseModel):
+    type: str               # "commit" | "pull_request"
+    title: str
+    author: Optional[str] = None
+    date: Optional[str] = None
+    url: Optional[str] = None
+
+
+class CodeAnalysisResult(BaseModel):
+    repo: str
+    items: List[CodeChangeItem] = []
+    error: Optional[str] = None
+
+
+class BranchInfo(BaseModel):
+    name: str
+    sha: Optional[str] = None
+    protected: bool = False
+
+
+class BranchesResponse(BaseModel):
+    repo: str
+    branches: List[BranchInfo] = []
+    error: Optional[str] = None
+
+
+class PullRequestInfo(BaseModel):
+    number: int
+    title: str
+    state: str
+    author: Optional[str] = None
+    url: Optional[str] = None
+    updated_at: Optional[str] = None
+    branch: Optional[str] = None
+
+
+class PullRequestsResponse(BaseModel):
+    repo: str
+    pull_requests: List[PullRequestInfo] = []
+    error: Optional[str] = None
+
+
+class RepoInfo(BaseModel):
+    configured: bool
+    repo: Optional[str] = None
+    owner: Optional[str] = None
+    name: Optional[str] = None
+    default_branch: Optional[str] = None
+    description: Optional[str] = None
+    url: Optional[str] = None
+    error: Optional[str] = None
+
+
 class AnalyzeResponse(BaseModel):
     total_failures: int
     time_range: str
     analyzed_at: str
     failure_groups: List[FailureGroup]
     summary: str
+    code_analysis: Optional[CodeAnalysisResult] = None
 
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -107,6 +167,24 @@ class ConfigUpdateRequest(BaseModel):
     athena_database: Optional[str] = None
     athena_table: Optional[str] = None
     llm_model: Optional[str] = None
+    anthropic_api_key: Optional[str] = None
+    grafana_loki_url: Optional[str] = None
+    grafana_api_key: Optional[str] = None
+    grafana_datasource_uid: Optional[str] = None
+    github_repo: Optional[str] = None
+    github_token: Optional[str] = None
+    github_mcp_command: Optional[str] = None
+
+
+class ProviderOption(BaseModel):
+    id: str
+    label: str
+
+
+class ProvidersResponse(BaseModel):
+    data_sources: List[ProviderOption]
+    log_backends: List[ProviderOption]
+    defaults: dict[str, str]
 
 
 class ConfigResponse(BaseModel):
@@ -118,3 +196,13 @@ class ConfigResponse(BaseModel):
     athena_table: str
     llm_model: str
     llm_base_url: str
+    llm_provider: str
+    anthropic_api_key_set: bool
+    grafana_loki_url: str
+    grafana_api_key_set: bool
+    grafana_datasource_uid: str
+    database_url_masked: str
+    database_connected: bool
+    github_repo: str
+    github_token_set: bool
+    github_mcp_command: str

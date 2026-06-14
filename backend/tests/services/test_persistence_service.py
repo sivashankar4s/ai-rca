@@ -10,9 +10,9 @@ from backend.db.models import (
     RcaCase,
     RootCauseSignature,
 )
-from backend.models.schemas import AnalyzeResponse
+from backend.models.schemas import AnalyzeResponse, FailuresResponse
 from backend.services import persistence_service
-from backend.tests.conftest import make_failure_group
+from backend.tests.conftest import make_failure_group, make_failure_record
 
 
 def _response(groups) -> AnalyzeResponse:
@@ -23,6 +23,54 @@ def _response(groups) -> AnalyzeResponse:
         failure_groups=groups,
         summary="Test summary",
     )
+
+
+def test_persist_fetched_records_creates_failure_records(db_session):
+    response = FailuresResponse(
+        total=2,
+        time_range="1h",
+        records=[
+            make_failure_record(custom_key1="trace-a"),
+            make_failure_record(custom_key1="trace-b"),
+        ],
+    )
+
+    created = persistence_service.persist_fetched_records(db_session, response)
+
+    assert created == 2
+    rows = db_session.execute(select(FailureRecordModel)).scalars().all()
+    assert {r.file_trace_id for r in rows} == {"trace-a", "trace-b"}
+
+
+def test_persist_fetched_records_skips_already_persisted(db_session):
+    response = FailuresResponse(
+        total=1, time_range="1h", records=[make_failure_record(custom_key1="trace-a")]
+    )
+
+    first = persistence_service.persist_fetched_records(db_session, response)
+    second = persistence_service.persist_fetched_records(db_session, response)
+
+    assert first == 1
+    assert second == 0
+    rows = db_session.execute(select(FailureRecordModel)).scalars().all()
+    assert len(rows) == 1
+
+
+def test_persist_analysis_links_to_already_fetched_record(db_session):
+    record = make_failure_record(custom_key1="trace-shared")
+    fetched = FailuresResponse(total=1, time_range="1h", records=[record])
+    persistence_service.persist_fetched_records(db_session, fetched)
+
+    group = make_failure_group(records=[record])
+    persistence_service.persist_analysis(db_session, _response([group]))
+
+    # Only one failure_records row should exist — analysis links to the
+    # row already created by Step 1, instead of inserting a duplicate.
+    rows = db_session.execute(select(FailureRecordModel)).scalars().all()
+    assert len(rows) == 1
+
+    link = db_session.execute(select(CaseFailureRecord)).scalar_one()
+    assert link.failure_record_id == rows[0].id
 
 
 def test_persist_analysis_creates_case_failure_and_signature(db_session):

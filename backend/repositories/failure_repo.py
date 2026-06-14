@@ -51,3 +51,37 @@ def bulk_create_failure_records(
     db: Session, project_id: uuid.UUID, records: list[FailureRecord]
 ) -> list[FailureRecordModel]:
     return [create_failure_record(db, project_id, record) for record in records]
+
+
+def get_existing_trace_ids(
+    db: Session, project_id: uuid.UUID, trace_ids: list[str]
+) -> set[str]:
+    """Return the subset of `trace_ids` (custom_key1) already stored for this project."""
+    if not trace_ids:
+        return set()
+    rows = (
+        db.query(FailureRecordModel.file_trace_id)
+        .filter(
+            FailureRecordModel.project_id == project_id,
+            FailureRecordModel.file_trace_id.in_(trace_ids),
+        )
+        .all()
+    )
+    return {row[0] for row in rows}
+
+
+def get_by_trace_ids(
+    db: Session, project_id: uuid.UUID, trace_ids: list[str]
+) -> dict[str, FailureRecordModel]:
+    """Return existing failure_records rows for this project, keyed by `file_trace_id`."""
+    if not trace_ids:
+        return {}
+    rows = (
+        db.query(FailureRecordModel)
+        .filter(
+            FailureRecordModel.project_id == project_id,
+            FailureRecordModel.file_trace_id.in_(trace_ids),
+        )
+        .all()
+    )
+    return {row.file_trace_id: row for row in rows}

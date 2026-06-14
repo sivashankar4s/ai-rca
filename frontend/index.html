@@ -14,13 +14,21 @@
         <span class="brand-icon">&#9881;</span>
         <div>
           <h1>AI Root Cause Analyzer</h1>
-          <p>Powered by Amazon Athena &middot; CloudWatch &middot; Claude AI</p>
+          <p>Powered by pluggable data, log &amp; AI providers</p>
         </div>
       </div>
       <span id="status-badge" class="badge badge--idle">Idle</span>
       <button id="cfg-open-btn" class="btn-cfg-open" title="Configuration">&#9881; Config</button>
     </div>
   </header>
+
+  <!-- Top-level page navigation -->
+  <nav class="page-nav">
+    <div class="page-nav-inner">
+      <button class="page-nav-btn active" data-page="rca-page">Root Cause Analysis</button>
+      <button class="page-nav-btn" data-page="source-page">Source Code Intelligence</button>
+    </div>
+  </nav>
 
   <!-- ── Config Drawer ──────────────────────────────────────────────── -->
   <div id="cfg-overlay" class="cfg-overlay hidden"></div>
@@ -78,7 +86,80 @@
     </div>
 
     <div class="cfg-section">
-      <div class="cfg-section-label">LLM Model</div>
+      <div class="cfg-section-label">Grafana / Loki</div>
+
+      <div class="cfg-field">
+        <label for="cfg-grafana-url">Base URL</label>
+        <input type="text" id="cfg-grafana-url" class="cfg-input" placeholder="https://your-grafana-host" />
+      </div>
+
+      <div class="cfg-field">
+        <label for="cfg-grafana-key">API Key</label>
+        <div class="cfg-secret-wrap">
+          <input type="password" id="cfg-grafana-key" class="cfg-input cfg-input--secret"
+                 placeholder="Leave blank to keep existing" autocomplete="new-password" />
+          <button class="cfg-eye-btn" data-target="cfg-grafana-key" title="Show / hide">&#128065;</button>
+        </div>
+        <span id="cfg-grafana-key-hint" class="cfg-hint"></span>
+      </div>
+
+      <div class="cfg-field">
+        <label for="cfg-grafana-uid">Loki Datasource UID</label>
+        <input type="text" id="cfg-grafana-uid" class="cfg-input" placeholder="your-loki-datasource-uid" />
+      </div>
+    </div>
+
+    <div class="cfg-section">
+      <div class="cfg-section-label">GitHub (Code Analysis Agent)</div>
+
+      <div class="cfg-field">
+        <label for="cfg-github-repo">Repository</label>
+        <input type="text" id="cfg-github-repo" class="cfg-input" placeholder="owner/repo" />
+      </div>
+
+      <div class="cfg-field">
+        <label for="cfg-github-token">Personal Access Token</label>
+        <div class="cfg-secret-wrap">
+          <input type="password" id="cfg-github-token" class="cfg-input cfg-input--secret"
+                 placeholder="Leave blank to keep existing" autocomplete="new-password" />
+          <button class="cfg-eye-btn" data-target="cfg-github-token" title="Show / hide">&#128065;</button>
+        </div>
+        <span id="cfg-github-token-hint" class="cfg-hint"></span>
+      </div>
+
+      <div class="cfg-field">
+        <label for="cfg-github-mcp-command">MCP Server Command</label>
+        <input type="text" id="cfg-github-mcp-command" class="cfg-input" placeholder="github-mcp-server" />
+      </div>
+    </div>
+
+    <div class="cfg-section">
+      <div class="cfg-section-label">Local Database (PostgreSQL)</div>
+
+      <div class="cfg-field">
+        <label>Connection</label>
+        <div class="cfg-static-value mono" id="cfg-db-url">-</div>
+      </div>
+
+      <div class="cfg-field">
+        <label>Status</label>
+        <span id="cfg-db-status" class="cfg-hint">-</span>
+      </div>
+    </div>
+
+    <div class="cfg-section">
+      <div class="cfg-section-label">LLM Model (Anthropic)</div>
+
+      <div class="cfg-field">
+        <label for="cfg-anthropic-key">Anthropic API Key</label>
+        <div class="cfg-secret-wrap">
+          <input type="password" id="cfg-anthropic-key" class="cfg-input cfg-input--secret"
+                 placeholder="Leave blank to keep existing" autocomplete="new-password" />
+          <button class="cfg-eye-btn" data-target="cfg-anthropic-key" title="Show / hide">&#128065;</button>
+        </div>
+        <span id="cfg-anthropic-key-hint" class="cfg-hint"></span>
+      </div>
+
       <div class="cfg-field">
         <label for="cfg-model">Model</label>
         <div class="cfg-model-row">
@@ -97,12 +178,17 @@
   </aside>
 
   <!-- Control Panel -->
-  <main class="container">
+  <main id="rca-page" class="container">
     <section class="card controls-card">
       <h2 class="section-title">Analysis Configuration</h2>
 
       <!-- Row 1: Quick range + date pickers -->
       <div class="controls-row controls-row--top">
+        <div class="control-group">
+          <label for="data-source-select">Data Source</label>
+          <select id="data-source-select" class="select-input"></select>
+        </div>
+
         <div class="control-group">
           <label>Quick Range</label>
           <div class="btn-group" id="time-range-group">
@@ -213,6 +299,10 @@
         <!-- Selection action bar -->
         <div class="selection-bar">
           <span id="selection-count" class="selection-count">0 selected</span>
+          <div class="log-backend-group">
+            <label for="log-backend-select">Log Backend</label>
+            <select id="log-backend-select" class="select-input"></select>
+          </div>
           <button id="rca-btn" class="btn-rca" disabled>
             <span id="rca-btn-text">Analyze Root Cause</span>
             <span id="rca-spinner" class="spinner hidden"></span>
@@ -249,6 +339,13 @@
       <!-- Failure groups -->
       <h2 class="section-title groups-title">Failure Groups</h2>
       <div id="groups-container"></div>
+
+      <!-- Related code changes (GitHub MCP) -->
+      <div id="code-analysis-card" class="card code-analysis-card hidden">
+        <h2 class="section-title">Related Code Changes</h2>
+        <p id="code-analysis-meta" class="code-analysis-meta"></p>
+        <div id="code-analysis-list" class="code-analysis-list"></div>
+      </div>
     </section>
 
     <!-- Empty state -->
@@ -256,6 +353,46 @@
       <span class="empty-icon">&#10003;</span>
       <p>No failures found for the selected time range.</p>
     </div>
+  </main>
+
+  <!-- ── Source Code Intelligence page ──────────────────────────────────── -->
+  <main id="source-page" class="container hidden">
+    <section class="card">
+      <div class="github-repo-header">
+        <div>
+          <h2 class="section-title">Repository</h2>
+          <p id="github-repo-name" class="github-repo-name">-</p>
+          <p id="github-repo-desc" class="github-repo-desc"></p>
+        </div>
+        <a id="github-repo-link" class="btn-primary github-repo-link hidden" target="_blank" rel="noopener noreferrer">Open on GitHub</a>
+      </div>
+      <div id="github-not-configured" class="empty-state hidden">
+        <span class="empty-icon">&#9881;</span>
+        <p>GitHub is not configured. Set <strong>GITHUB_REPO</strong> and <strong>GITHUB_TOKEN</strong> in Configuration.</p>
+      </div>
+      <div id="github-error" class="error-banner hidden"></div>
+    </section>
+
+    <section class="card">
+      <div class="github-section-header">
+        <h2 class="section-title">Branches</h2>
+        <button id="github-branches-refresh" class="cfg-icon-btn" title="Refresh">&#8635;</button>
+      </div>
+      <div id="github-branches-list" class="github-branches-list"></div>
+    </section>
+
+    <section class="card">
+      <div class="github-section-header">
+        <h2 class="section-title">Pull Requests</h2>
+        <div class="btn-group" id="github-pr-state-group">
+          <button class="btn-range active" data-state="open">Open</button>
+          <button class="btn-range" data-state="closed">Closed</button>
+          <button class="btn-range" data-state="all">All</button>
+        </div>
+        <button id="github-prs-refresh" class="cfg-icon-btn" title="Refresh">&#8635;</button>
+      </div>
+      <div id="github-prs-list" class="github-prs-list"></div>
+    </section>
   </main>
 
   <script src="/assets/app.js"></script>

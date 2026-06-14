@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from .config import settings
-from .routers import analysis
+from .routers import analysis, github
 
 # ── Logging setup ─────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -31,6 +31,7 @@ app.add_middleware(
 )
 
 app.include_router(analysis.router)
+app.include_router(github.router)
 
 
 @app.on_event("startup")
