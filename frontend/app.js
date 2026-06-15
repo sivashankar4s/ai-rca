@@ -848,6 +848,10 @@ const githubPrsList       = document.getElementById("github-prs-list");
 const githubBranchesRefresh = document.getElementById("github-branches-refresh");
 const githubPrsRefresh      = document.getElementById("github-prs-refresh");
 const githubPrStateGroup    = document.getElementById("github-pr-state-group");
+const codeReviewSection      = document.getElementById("code-review-section");
+const codeReviewTarget       = document.getElementById("code-review-target");
+const codeReviewBody         = document.getElementById("code-review-body");
+const codeReviewClose        = document.getElementById("code-review-close");
 
 let githubPrState = "open";
 let githubLoaded = false;
@@ -935,6 +939,14 @@ async function loadGithubBranches() {
         row.appendChild(sha);
       }
 
+      const reviewBtn = document.createElement("button");
+      reviewBtn.className = "btn-secondary code-review-btn";
+      reviewBtn.textContent = "Review";
+      reviewBtn.addEventListener("click", () => runCodeReview(`branch ${b.name}`, () =>
+        fetch(`${API_BASE}/api/github/branches/review?branch=${encodeURIComponent(b.name)}`)
+      ));
+      row.appendChild(reviewBtn);
+
       githubBranchesList.appendChild(row);
     });
   } catch (e) {
@@ -993,6 +1005,14 @@ async function loadGithubPullRequests() {
       meta.textContent = parts.join(" · ");
       row.appendChild(meta);
 
+      const reviewBtn = document.createElement("button");
+      reviewBtn.className = "btn-secondary code-review-btn";
+      reviewBtn.textContent = "Review";
+      reviewBtn.addEventListener("click", () => runCodeReview(`PR #${pr.number}`, () =>
+        fetch(`${API_BASE}/api/github/pull-requests/${pr.number}/review`)
+      ));
+      row.appendChild(reviewBtn);
+
       githubPrsList.appendChild(row);
     });
   } catch (e) {
@@ -1000,6 +1020,102 @@ async function loadGithubPullRequests() {
     githubPrsList.innerHTML = `<p class="code-analysis-error">Failed to load pull requests: ${escHtml(e.message)}</p>`;
   }
 }
+
+const CODE_REVIEW_SEVERITY_ORDER = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
+
+async function runCodeReview(targetLabel, fetchFn) {
+  codeReviewSection.classList.remove("hidden");
+  codeReviewTarget.textContent = targetLabel;
+  codeReviewBody.innerHTML = `<p class="code-analysis-empty">Reviewing ${escHtml(targetLabel)}… this may take a minute.</p>`;
+  codeReviewSection.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+  try {
+    const resp = await fetchFn();
+    const data = await resp.json();
+
+    if (data.error) {
+      codeReviewBody.innerHTML = `<p class="code-analysis-error">${escHtml(data.error)}</p>`;
+      return;
+    }
+
+    codeReviewBody.innerHTML = "";
+
+    if (data.summary) {
+      const summary = document.createElement("p");
+      summary.className = "code-review-summary";
+      summary.textContent = data.summary;
+      codeReviewBody.appendChild(summary);
+    }
+
+    const findings = (data.findings || []).slice().sort(
+      (a, b) => (CODE_REVIEW_SEVERITY_ORDER[a.severity] ?? 9) - (CODE_REVIEW_SEVERITY_ORDER[b.severity] ?? 9)
+    );
+
+    if (findings.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "code-analysis-empty";
+      empty.textContent = "No issues found.";
+      codeReviewBody.appendChild(empty);
+      return;
+    }
+
+    findings.forEach((f) => {
+      const item = document.createElement("div");
+      item.className = `code-review-finding code-review-finding--${f.severity || "info"}`;
+
+      const header = document.createElement("div");
+      header.className = "code-review-finding-header";
+
+      const severity = document.createElement("span");
+      severity.className = `code-review-severity code-review-severity--${f.severity || "info"}`;
+      severity.textContent = (f.severity || "info").toUpperCase();
+      header.appendChild(severity);
+
+      const category = document.createElement("span");
+      category.className = "code-review-category";
+      category.textContent = (f.category || "").replace(/_/g, " ");
+      header.appendChild(category);
+
+      const title = document.createElement("span");
+      title.className = "code-review-title";
+      title.textContent = f.title || "";
+      header.appendChild(title);
+
+      item.appendChild(header);
+
+      if (f.file) {
+        const location = document.createElement("div");
+        location.className = "code-review-location";
+        location.textContent = f.line ? `${f.file}:${f.line}` : f.file;
+        item.appendChild(location);
+      }
+
+      if (f.description) {
+        const desc = document.createElement("p");
+        desc.className = "code-review-description";
+        desc.textContent = f.description;
+        item.appendChild(desc);
+      }
+
+      if (f.recommendation) {
+        const rec = document.createElement("p");
+        rec.className = "code-review-recommendation";
+        rec.innerHTML = `<strong>Recommendation:</strong> ${escHtml(f.recommendation)}`;
+        item.appendChild(rec);
+      }
+
+      codeReviewBody.appendChild(item);
+    });
+  } catch (e) {
+    console.error("Code review failed:", e);
+    codeReviewBody.innerHTML = `<p class="code-analysis-error">Code review failed: ${escHtml(e.message)}</p>`;
+  }
+}
+
+codeReviewClose.addEventListener("click", () => {
+  codeReviewSection.classList.add("hidden");
+  codeReviewBody.innerHTML = "";
+});
 
 githubBranchesRefresh.addEventListener("click", loadGithubBranches);
 githubPrsRefresh.addEventListener("click", loadGithubPullRequests);

@@ -138,6 +138,24 @@ class PullRequestsResponse(BaseModel):
     error: Optional[str] = None
 
 
+class CodeReviewFinding(BaseModel):
+    severity: str            # "critical" | "high" | "medium" | "low" | "info"
+    category: str            # "security" | "sql_injection" | "bug" | "code_quality" | "performance" | "style" | "suggestion"
+    file: Optional[str] = None
+    line: Optional[int] = None
+    title: str
+    description: str
+    recommendation: Optional[str] = None
+
+
+class CodeReviewResult(BaseModel):
+    repo: str
+    target: str
+    summary: str = ""
+    findings: List[CodeReviewFinding] = []
+    error: Optional[str] = None
+
+
 class RepoInfo(BaseModel):
     configured: bool
     repo: Optional[str] = None

@@ -494,6 +494,97 @@ body {
 .github-pr-state--closed { background: #fee2e2; color: #991b1b; }
 .github-pr-state--merged { background: #ede9fe; color: #5b21b6; }
 
+.code-review-btn {
+  flex: 0 0 auto;
+  padding: 4px 12px;
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.code-review-btn:hover { background: var(--accent); color: #fff; }
+
+.code-review-summary {
+  font-size: 13px;
+  color: var(--text);
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+
+.code-review-finding {
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--text-muted);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+
+.code-review-finding--critical { border-left-color: #991b1b; }
+.code-review-finding--high     { border-left-color: var(--danger); }
+.code-review-finding--medium   { border-left-color: var(--warning); }
+.code-review-finding--low      { border-left-color: #3b82f6; }
+.code-review-finding--info     { border-left-color: var(--text-muted); }
+
+.code-review-finding-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.code-review-severity {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.code-review-severity--critical { background: #fecaca; color: #991b1b; }
+.code-review-severity--high     { background: #fee2e2; color: #991b1b; }
+.code-review-severity--medium   { background: #fef3c7; color: #92400e; }
+.code-review-severity--low      { background: #dbeafe; color: #1e40af; }
+.code-review-severity--info     { background: #e2e8f0; color: #475569; }
+
+.code-review-category {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+.code-review-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.code-review-location {
+  font-family: "Fira Code", "Cascadia Code", Consolas, monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.code-review-description {
+  font-size: 13px;
+  color: var(--text);
+  margin-top: 6px;
+  line-height: 1.5;
+}
+
+.code-review-recommendation {
+  font-size: 13px;
+  color: var(--text);
+  margin-top: 6px;
+  line-height: 1.5;
+}
+
 .group-header {
   display: flex;
   align-items: center;
