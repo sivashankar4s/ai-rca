@@ -107,6 +107,7 @@
     .pill .dot.blue { background: var(--roche-light); }
     .pill .dot.orange { background: var(--accent2); }
     .pill .dot.purple { background: var(--purple); }
+    .pill .dot.green { background: var(--green); }
 
     /* ── Cards ────────────────────────────────────────────────────────── */
     .card-grid {
@@ -385,6 +386,7 @@
   <a href="#slide-components">Components</a><span class="nav-sep">·</span>
   <a href="#slide-config">Config Panel</a><span class="nav-sep">·</span>
   <a href="#slide-llm">AI Pipeline</a><span class="nav-sep">·</span>
+  <a href="#slide-codereview">Code Review</a><span class="nav-sep">·</span>
   <a href="#slide-output">Output</a><span class="nav-sep">·</span>
   <a href="#slide-metrics">Metrics</a><span class="nav-sep">·</span>
   <a href="#slide-roadmap">Roadmap</a><span class="nav-sep">·</span>
@@ -406,7 +408,8 @@
     <span class="pill"><span class="dot"></span>Phase 1 — Built &amp; Running</span>
     <span class="pill"><span class="dot blue"></span>FastAPI · Python 3.13</span>
     <span class="pill"><span class="dot orange"></span>Amazon Athena · CloudWatch</span>
-    <span class="pill"><span class="dot purple"></span>Claude AI (Navify Enrichment API)</span>
+    <span class="pill"><span class="dot purple"></span>Claude AI (Anthropic API)</span>
+    <span class="pill"><span class="dot green"></span>GitHub MCP — Source Code Intelligence</span>
   </div>
 </div>
 
@@ -688,12 +691,12 @@
       <div class="arch-chip"><span class="icon">🎼</span> RCAOrchestrator</div>
       <div class="arch-chip"><span class="icon">🗄</span> AthenaService</div>
       <div class="arch-chip"><span class="icon">📜</span> CloudWatchService</div>
-      <div class="arch-chip"><span class="icon">🤖</span> BedrockService (LLM client)</div>
+      <div class="arch-chip"><span class="icon">🤖</span> AnthropicLLMProvider (LLM client)</div>
       <div class="arch-chip"><span class="icon">🔒</span> Pydantic Settings (.env)</div>
     </div>
   </div>
 
-  <div class="arch-arrow">↕ boto3 (AWS SDK)  |  HTTPS (OpenAI-compatible API)</div>
+  <div class="arch-arrow">↕ boto3 (AWS SDK)  |  HTTPS (Anthropic Messages API)  |  MCP stdio (GitHub)</div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px">
     <div class="arch-box" style="border-color:rgba(240,165,0,.3)">
@@ -706,13 +709,23 @@
       </div>
     </div>
     <div class="arch-box" style="border-color:rgba(34,197,94,.3)">
-      <div class="arch-label llm">LLM — Navify Enrichment API</div>
+      <div class="arch-label llm">LLM — Anthropic Claude API</div>
       <div class="arch-inner">
-        <div class="arch-chip"><span class="icon">🧠</span> Claude AI (gpt-4o endpoint)</div>
-        <div class="arch-chip"><span class="icon">🔌</span> OpenAI-compatible REST API</div>
-        <div class="arch-chip"><span class="icon">🏢</span> Roche internal (Navify)</div>
-        <div class="arch-chip"><span class="icon">🛡</span> Bearer token auth</div>
+        <div class="arch-chip"><span class="icon">🧠</span> Claude Sonnet (claude-sonnet-4-6)</div>
+        <div class="arch-chip"><span class="icon">🔌</span> Direct Messages API (/v1/messages)</div>
+        <div class="arch-chip"><span class="icon">📋</span> /v1/models for live model list</div>
+        <div class="arch-chip"><span class="icon">🛡</span> x-api-key auth</div>
       </div>
+    </div>
+  </div>
+
+  <div class="arch-box" style="border-color:rgba(0,180,216,.3);margin-top:16px">
+    <div class="arch-label" style="color:var(--accent)">GitHub MCP Server — Source Code Intelligence</div>
+    <div class="arch-inner">
+      <div class="arch-chip"><span class="icon">🔗</span> Repo Info · Branches · Pull Requests</div>
+      <div class="arch-chip"><span class="icon">📝</span> PR / Branch Diff Retrieval</div>
+      <div class="arch-chip"><span class="icon">🛡</span> AI Code Review (security, SQLi, SonarQube-style, formatting)</div>
+      <div class="arch-chip"><span class="icon">💡</span> Feature Recommendations</div>
     </div>
   </div>
 </div>
@@ -763,8 +776,18 @@
         </tr>
         <tr>
           <td>AI / LLM</td>
-          <td>Navify Enrichment API (Claude AI)</td>
-          <td>3 sequential LLM calls: (1) summarize failures, (2) generate CW queries, (3) perform RCA + grouping</td>
+          <td>Anthropic Claude API (claude-sonnet-4-6)</td>
+          <td>5-step pipeline: (1) summarize failures, (2) generate CW queries, (3) perform RCA + grouping, (4) executive summary, (5) code analysis agent for related PR/branch</td>
+        </tr>
+        <tr>
+          <td>Source Code Intelligence</td>
+          <td>GitHub MCP Server</td>
+          <td>Repo info, branches, and pull requests via MCP tools; powers the AI Code Review feature for diffs</td>
+        </tr>
+        <tr>
+          <td>AI Code Review</td>
+          <td>code_review_service + Claude</td>
+          <td>Reviews PR/branch diffs for security issues, SQL injection, SonarQube-style code smells, formatting, and recommends new features — severity-ranked findings</td>
         </tr>
         <tr>
           <td>AWS SDK</td>
@@ -794,7 +817,7 @@
         <tr>
           <td>Models API</td>
           <td>GET /api/models</td>
-          <td>Proxies Navify Enrichment API /v1/models — returns sorted model list for the UI dropdown; refreshable without restart</td>
+          <td>Proxies Anthropic /v1/models — returns sorted model list for the UI dropdown; refreshable without restart</td>
         </tr>
       </tbody>
     </table>
@@ -829,7 +852,7 @@
     <div class="card">
       <div class="card-icon purple">🧠</div>
       <h3>LLM Model Picker</h3>
-      <p>Dropdown auto-populated from <code style="background:rgba(0,0,0,.2);padding:1px 6px;border-radius:4px;font-size:12px">GET /api/models</code> (Navify Enrichment API). Includes a ↻ refresh button. Defaults to <strong>claude-sonnet-4</strong> set in <code style="background:rgba(0,0,0,.2);padding:1px 6px;border-radius:4px;font-size:12px">.env</code>.</p>
+      <p>Dropdown auto-populated from <code style="background:rgba(0,0,0,.2);padding:1px 6px;border-radius:4px;font-size:12px">GET /api/models</code> (Anthropic API). Includes a ↻ refresh button. Defaults to <strong>claude-sonnet-4-6</strong> set in <code style="background:rgba(0,0,0,.2);padding:1px 6px;border-radius:4px;font-size:12px">.env</code>.</p>
     </div>
   </div>
 
@@ -845,7 +868,7 @@
       <div class="flow-step" style="min-width:130px">
         <div class="flow-num">2</div>
         <h4>Models</h4>
-        <p><code style="font-size:11px">GET /api/models</code> proxies Navify and fills the dropdown with all available models.</p>
+        <p><code style="font-size:11px">GET /api/models</code> proxies Anthropic and fills the dropdown with all available models.</p>
         <span class="flow-badge fb-llm">GET /api/models</span>
       </div>
       <div class="flow-step" style="min-width:130px">
@@ -875,8 +898,8 @@
 ══════════════════════════════════════════════════════════════════════════════ -->
 <div class="slide" id="slide-llm">
   <p class="slide-label">AI Pipeline</p>
-  <h2 class="slide-title">What the LLM does — 3 calls,<br>each with a precise job</h2>
-  <p class="slide-subtitle">The RCAOrchestrator chains 3 LLM invocations with actual failure data injected into each prompt.</p>
+  <h2 class="slide-title">What the LLM does — 5 steps,<br>each with a precise job</h2>
+  <p class="slide-subtitle">The RCAOrchestrator chains LLM invocations (and an optional code analysis agent) with actual failure data injected into each prompt.</p>
 
   <div class="llm-step">
     <div class="llm-step-num">1</div>
@@ -922,10 +945,104 @@
     </div>
   </div>
 
+  <div class="llm-step">
+    <div class="llm-step-num">4</div>
+    <div class="llm-step-content">
+      <h4>Executive Summary <span style="font-weight:400;color:var(--text-muted);font-size:12px">· max_tokens=1024</span></h4>
+      <p>
+        Injects the full set of <code>FailureGroup</code> results from step 3.
+        Produces a concise, leadership-facing summary of overall impact, the most
+        urgent failure groups, and recommended next actions — ready to paste into
+        a status update or incident report.
+      </p>
+    </div>
+  </div>
+
+  <div class="llm-step">
+    <div class="llm-step-num">5</div>
+    <div class="llm-step-content">
+      <h4>Code Analysis Agent <span style="font-weight:400;color:var(--text-muted);font-size:12px">· via GitHub MCP</span></h4>
+      <p>
+        On the Source Code Intelligence page, fetches a PR or branch diff via the
+        <code>GitHub MCP Server</code> and sends it to Claude with a structured review
+        prompt. Returns a JSON <code>summary</code> + <code>findings[]</code> covering
+        <code>security</code>, <code>sql_injection</code>, <code>sonar</code>-style code
+        smells, <code>formatting</code>, and <code>feature</code> recommendations —
+        each finding ranked by severity (critical → info).
+      </p>
+    </div>
+  </div>
+
   <div class="callout">
     <strong>Guardrails:</strong> All prompts explicitly demand actual field values (component_name, error_code, stage, device_id).
     Vague responses like "check the logs" are prohibited in the prompt instructions.
     JSON extraction uses a robust regex fallback if the LLM wraps output in markdown fences.
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     SLIDE 8b — SOURCE CODE INTELLIGENCE & AI CODE REVIEW
+══════════════════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-codereview">
+  <p class="slide-label">New · Source Code Intelligence</p>
+  <h2 class="slide-title">From "why did it fail" to<br>"is the fix any good"</h2>
+  <p class="slide-subtitle">A GitHub MCP integration brings repo, branch, and PR awareness into the app — and an AI Code Review agent inspects diffs the moment they're ready.</p>
+
+  <div class="card-grid card-grid-3" style="margin-bottom:24px">
+    <div class="card">
+      <div class="card-icon blue">🔗</div>
+      <h3>Repo &amp; Branch Browser</h3>
+      <p>Lists repo info, branches, and open pull requests via the GitHub MCP server (<code style="background:rgba(255,255,255,.08);padding:1px 6px;border-radius:4px;font-size:12px">list_branches</code>, <code style="background:rgba(255,255,255,.08);padding:1px 6px;border-radius:4px;font-size:12px">list_pull_requests</code>, <code style="background:rgba(255,255,255,.08);padding:1px 6px;border-radius:4px;font-size:12px">search_repositories</code>) — no manual GitHub UI hopping.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon orange">🛡</div>
+      <h3>AI Code Review</h3>
+      <p>One click on a branch or PR fetches its diff (<code style="background:rgba(255,255,255,.08);padding:1px 6px;border-radius:4px;font-size:12px">pull_request_read</code> / <code style="background:rgba(255,255,255,.08);padding:1px 6px;border-radius:4px;font-size:12px">get_commit</code>) and sends it to Claude for analysis.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon purple">📋</div>
+      <h3>Severity-Ranked Findings</h3>
+      <p>Results rendered as a summary + a list of findings — each tagged with severity (critical/high/medium/low/info), category, file, line, description, and a concrete recommendation.</p>
+    </div>
+  </div>
+
+  <div class="card" style="background:rgba(0,93,171,.1);border-color:rgba(0,122,194,.3);margin-bottom:24px">
+    <h3 style="margin-bottom:16px;font-size:15px">What the AI Code Review checks for</h3>
+    <div class="flow">
+      <div class="flow-step" style="min-width:130px">
+        <div class="flow-num">🛡</div>
+        <h4>Security</h4>
+        <p>Hardcoded secrets, unsafe deserialization, missing auth checks, insecure defaults.</p>
+      </div>
+      <div class="flow-step" style="min-width:130px">
+        <div class="flow-num">🗄</div>
+        <h4>SQL Injection</h4>
+        <p>String-formatted or concatenated queries that should be parameterized.</p>
+      </div>
+      <div class="flow-step" style="min-width:130px">
+        <div class="flow-num">📐</div>
+        <h4>SonarQube-Style</h4>
+        <p>Code smells, duplication, complexity, dead code, missing error handling.</p>
+      </div>
+      <div class="flow-step" style="min-width:130px">
+        <div class="flow-num">🎨</div>
+        <h4>Formatting</h4>
+        <p>Style/convention deviations from the rest of the codebase.</p>
+      </div>
+      <div class="flow-step" style="min-width:130px">
+        <div class="flow-num">💡</div>
+        <h4>Feature Ideas</h4>
+        <p>Suggested enhancements or follow-ups based on what the diff is doing.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <strong>Endpoints:</strong> <code>GET /api/github/pull-requests/{number}/review</code> and
+    <code>GET /api/github/branches/review?branch=...</code> — both return a
+    <code>CodeReviewResult</code> (repo, target, summary, findings[]) consumed directly by the
+    Source Code Intelligence page in the UI.
   </div>
 </div>
 
@@ -1107,7 +1224,42 @@
       <div class="roadmap-badge rb-done">✓ Done</div>
       <div class="roadmap-text">
         <h4>Runtime Config Panel</h4>
-        <p>Slide-in drawer to update AWS credentials (Key ID, Secret, Session Token), Region, Athena DB/Table, and LLM model — all at runtime without touching <code style="background:rgba(0,0,0,.2);padding:1px 6px;border-radius:4px;font-size:11px">.env</code> or restarting the server. Model list auto-populated live from the Navify API. Drawer auto-closes on successful save.</p>
+        <p>Slide-in drawer to update AWS credentials (Key ID, Secret, Session Token), Region, Athena DB/Table, and LLM model — all at runtime without touching <code style="background:rgba(0,0,0,.2);padding:1px 6px;border-radius:4px;font-size:11px">.env</code> or restarting the server. Model list auto-populated live from the Anthropic API. Drawer auto-closes on successful save.</p>
+      </div>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-badge rb-done">✓ Done</div>
+      <div class="roadmap-text">
+        <h4>Direct Anthropic Claude Integration</h4>
+        <p>Replaced the Navify Enrichment proxy with a direct Anthropic Messages API provider (<code style="background:rgba(0,0,0,.2);padding:1px 6px;border-radius:4px;font-size:11px">claude-sonnet-4-6</code>, <code style="background:rgba(0,0,0,.2);padding:1px 6px;border-radius:4px;font-size:11px">x-api-key</code> auth) via a pluggable strategy + registry, selectable through <code style="background:rgba(0,0,0,.2);padding:1px 6px;border-radius:4px;font-size:11px">LLM_PROVIDER</code>.</p>
+      </div>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-badge rb-done">✓ Done</div>
+      <div class="roadmap-text">
+        <h4>Source Code Intelligence + AI Code Review (GitHub MCP)</h4>
+        <p>Browse repo info, branches, and pull requests via the GitHub MCP server, then run an AI Code Review on any PR or branch diff — surfacing security, SQL injection, SonarQube-style, and formatting findings plus feature recommendations, ranked by severity.</p>
+      </div>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-badge rb-future">Future</div>
+      <div class="roadmap-text">
+        <h4>Auto-link RCA → PR</h4>
+        <p>When an RCA case is created, use the GitHub MCP integration to search for an existing pull request that addresses the failing component/error (by branch name, commit message, or linked issue), and surface it directly on the RCA page next to the failure group.</p>
+      </div>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-badge rb-future">Future</div>
+      <div class="roadmap-text">
+        <h4>Inline PR Review Comments</h4>
+        <p>Extend AI Code Review so findings can be posted as review comments directly on the pull request (via <code style="background:rgba(0,0,0,.3);padding:1px 6px;border-radius:4px;font-size:11px">pull_request_review_write</code>), anchored to the relevant file/line — not just shown in the UI.</p>
+      </div>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-badge rb-future">Future</div>
+      <div class="roadmap-text">
+        <h4>Full Repository Scan</h4>
+        <p>A "Scan Repository" mode that walks the configured repo (not just a single PR/branch diff) and runs the full AI Code Review checklist — security, SQL injection, SonarQube-style code quality, formatting, and feature recommendations — across the codebase, producing a repo-wide report.</p>
       </div>
     </div>
     <div class="roadmap-item">
@@ -1154,13 +1306,14 @@
     <span style="color:var(--accent)">From failure to fix in 60 seconds.</span>
   </h2>
   <p class="hero-sub" style="text-align:center;margin:0 auto 40px">
-    Built with FastAPI · Amazon Athena · CloudWatch Logs Insights · Claude AI (Navify Enrichment API)
+    Built with FastAPI · Amazon Athena · CloudWatch Logs Insights · Claude AI (Anthropic API) · GitHub MCP
   </p>
   <div class="hero-pills" style="justify-content:center">
     <span class="pill"><span class="dot"></span>Phase 1 — Complete</span>
     <span class="pill"><span class="dot orange"></span>~98% MTRC Reduction</span>
     <span class="pill"><span class="dot blue"></span>Zero prerequisite knowledge needed</span>
-    <span class="pill"><span class="dot purple"></span>Phase 2 — Reprocessing Pipeline (Roadmap)</span>
+    <span class="pill"><span class="dot green"></span>Source Code Intelligence + AI Code Review — Complete</span>
+    <span class="pill"><span class="dot purple"></span>Auto-link RCA → PR, Inline Review Comments, Full Repo Scan (Roadmap)</span>
   </div>
 </div>
 

@@ -425,6 +425,23 @@ Returns `{"status": "ok"}`.
 
 ---
 
+## Roadmap / Planned Enhancements
+
+- **Auto-link RCA → PR** — when an RCA case is created, use the GitHub MCP integration
+  to search for an existing pull request that addresses the failing component/error
+  (e.g. by branch name, commit message, or linked issue), and surface it directly on
+  the RCA page next to the failure group.
+- **Inline PR review comments** — extend the AI Code Review feature so that, instead
+  of only displaying findings in the UI, the agent can post the findings as review
+  comments directly on the pull request (via `pull_request_review_write`), anchored
+  to the relevant file/line.
+- **Full repository scan** — a "Scan Repository" mode that walks the configured repo
+  (not just a single PR/branch diff) and runs the full AI Code Review checklist
+  (security, SQL injection, SonarQube-style code quality, formatting, and feature
+  recommendations) across the codebase, producing a repo-wide report.
+
+---
+
 ## How the Log Deep-Link Works
 
 For each failure group the API returns a `cw_log_url` — a pre-built deep link into the
