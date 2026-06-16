@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     local_data_file: str = "./sample_failures.json"
 
     # CRM persistence (PostgreSQL via SQLAlchemy + Alembic).
-    database_url: str = "postgresql+psycopg2://airca:airca@localhost:5432/airca"
+    database_url: str = "postgresql+psycopg2://postgres:root@localhost:5432/airca"
 
     # GitHub MCP (related code changes) — optional; empty means the feature is off.
     github_repo: str = ""
