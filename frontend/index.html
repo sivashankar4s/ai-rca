@@ -4,405 +4,83 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI Root Cause Analyzer</title>
-  <link rel="stylesheet" href="/assets/style.css" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- Header -->
-  <header class="header">
-    <div class="header-inner">
-      <div class="brand">
-        <span class="brand-icon">&#9881;</span>
-        <div>
-          <h1>AI Root Cause Analyzer</h1>
-          <p>Powered by pluggable data, log &amp; AI providers</p>
-        </div>
-      </div>
-      <span id="status-badge" class="badge badge--idle">Idle</span>
-      <button id="cfg-open-btn" class="btn-cfg-open" title="Configuration">&#9881; Config</button>
-    </div>
-  </header>
 
-  <!-- Top-level page navigation -->
-  <nav class="page-nav">
-    <div class="page-nav-inner">
-      <button class="page-nav-btn active" data-page="rca-page">Root Cause Analysis</button>
-      <button class="page-nav-btn" data-page="source-page">Source Code Intelligence</button>
-    </div>
-  </nav>
+<header>
+  <h1>AI Root Cause Analyzer</h1>
+  <span class="badge">US1</span>
+</header>
 
-  <!-- ── Config Drawer ──────────────────────────────────────────────── -->
-  <div id="cfg-overlay" class="cfg-overlay hidden"></div>
-  <aside id="cfg-drawer" class="cfg-drawer hidden">
-    <div class="cfg-drawer-header">
-      <span class="cfg-drawer-title">&#9881; Configuration</span>
-      <button id="cfg-close-btn" class="cfg-close-btn" title="Close">&times;</button>
+<main>
+
+  <!-- Filter panel -->
+  <section class="filter-panel" aria-label="Failure search filters">
+
+    <div class="field">
+      <label for="time-range">Time Range</label>
+      <select id="time-range">
+        <option value="1h">Last 1 Hour</option>
+        <option value="1d" selected>Last 1 Day</option>
+        <option value="1w">Last 1 Week</option>
+        <option value="custom">Custom Range</option>
+      </select>
     </div>
 
-    <div id="cfg-save-banner" class="cfg-save-banner hidden"></div>
-
-    <div class="cfg-section">
-      <div class="cfg-section-label">AWS Credentials</div>
-
-      <div class="cfg-field">
-        <label for="cfg-key-id">Access Key ID</label>
-        <input type="text" id="cfg-key-id" class="cfg-input" placeholder="ASIA…" autocomplete="off" />
+    <div class="custom-dates" id="custom-dates">
+      <div class="field">
+        <label for="start-dt">Start</label>
+        <input type="datetime-local" id="start-dt" />
       </div>
-
-      <div class="cfg-field">
-        <label for="cfg-secret">Secret Access Key</label>
-        <div class="cfg-secret-wrap">
-          <input type="password" id="cfg-secret" class="cfg-input cfg-input--secret"
-                 placeholder="Leave blank to keep existing" autocomplete="new-password" />
-          <button class="cfg-eye-btn" data-target="cfg-secret" title="Show / hide">&#128065;</button>
-        </div>
-        <span id="cfg-secret-hint" class="cfg-hint"></span>
-      </div>
-
-      <div class="cfg-field">
-        <label for="cfg-token">Session Token</label>
-        <textarea id="cfg-token" class="cfg-input cfg-textarea"
-                  placeholder="Leave blank to keep existing" autocomplete="off" rows="3"></textarea>
-        <span id="cfg-token-hint" class="cfg-hint"></span>
-      </div>
-
-      <div class="cfg-field">
-        <label for="cfg-region">AWS Region</label>
-        <input type="text" id="cfg-region" class="cfg-input" placeholder="us-west-2" />
+      <div class="field">
+        <label for="end-dt">End</label>
+        <input type="datetime-local" id="end-dt" />
       </div>
     </div>
 
-    <div class="cfg-section">
-      <div class="cfg-section-label">Athena</div>
-
-      <div class="cfg-field">
-        <label for="cfg-db">Database</label>
-        <input type="text" id="cfg-db" class="cfg-input" placeholder="your_database" />
-      </div>
-
-      <div class="cfg-field">
-        <label for="cfg-table">Table</label>
-        <input type="text" id="cfg-table" class="cfg-input" placeholder="your_table" />
-      </div>
+    <div class="field">
+      <label for="component">Component (optional)</label>
+      <input type="text" id="component" placeholder="e.g. dp-lz-s3-event-processor" style="min-width:260px" />
     </div>
 
-    <div class="cfg-section">
-      <div class="cfg-section-label">Grafana / Loki</div>
+    <button class="btn" id="fetch-btn" type="button">
+      <span id="fetch-spinner" class="spinner" style="display:none"></span>
+      Fetch Failures
+    </button>
 
-      <div class="cfg-field">
-        <label for="cfg-grafana-url">Base URL</label>
-        <input type="text" id="cfg-grafana-url" class="cfg-input" placeholder="https://your-grafana-host" />
-      </div>
+  </section>
 
-      <div class="cfg-field">
-        <label for="cfg-grafana-key">API Key</label>
-        <div class="cfg-secret-wrap">
-          <input type="password" id="cfg-grafana-key" class="cfg-input cfg-input--secret"
-                 placeholder="Leave blank to keep existing" autocomplete="new-password" />
-          <button class="cfg-eye-btn" data-target="cfg-grafana-key" title="Show / hide">&#128065;</button>
-        </div>
-        <span id="cfg-grafana-key-hint" class="cfg-hint"></span>
-      </div>
+  <!-- Error banner -->
+  <div class="error-banner" id="error-banner" role="alert" style="display:none"></div>
 
-      <div class="cfg-field">
-        <label for="cfg-grafana-uid">Loki Datasource UID</label>
-        <input type="text" id="cfg-grafana-uid" class="cfg-input" placeholder="your-loki-datasource-uid" />
-      </div>
+  <!-- Selection bar -->
+  <div class="selection-bar" id="selection-bar">
+    <span id="selection-count"></span>
+    <button class="clear-btn" id="clear-selection-btn" type="button">Clear selection</button>
+  </div>
+
+  <!-- Results header -->
+  <div class="results-header" id="results-header" style="display:none">
+    <div class="summary" id="results-summary"></div>
+    <div class="page-size-wrapper">
+      <label for="page-size">Rows per page:</label>
+      <select id="page-size">
+        <option value="10" selected>10</option>
+        <option value="25">25</option>
+        <option value="50">50</option>
+      </select>
     </div>
+  </div>
 
-    <div class="cfg-section">
-      <div class="cfg-section-label">GitHub (Code Analysis Agent)</div>
+  <!-- Table / empty state -->
+  <div id="table-area"></div>
 
-      <div class="cfg-field">
-        <label for="cfg-github-repo">Repository</label>
-        <input type="text" id="cfg-github-repo" class="cfg-input" placeholder="owner/repo" />
-      </div>
+  <!-- Pagination -->
+  <div class="pagination" id="pagination" style="display:none"></div>
 
-      <div class="cfg-field">
-        <label for="cfg-github-token">Personal Access Token</label>
-        <div class="cfg-secret-wrap">
-          <input type="password" id="cfg-github-token" class="cfg-input cfg-input--secret"
-                 placeholder="Leave blank to keep existing" autocomplete="new-password" />
-          <button class="cfg-eye-btn" data-target="cfg-github-token" title="Show / hide">&#128065;</button>
-        </div>
-        <span id="cfg-github-token-hint" class="cfg-hint"></span>
-      </div>
+</main>
 
-      <div class="cfg-field">
-        <label for="cfg-github-mcp-command">MCP Server Command</label>
-        <input type="text" id="cfg-github-mcp-command" class="cfg-input" placeholder="github-mcp-server" />
-      </div>
-    </div>
-
-    <div class="cfg-section">
-      <div class="cfg-section-label">Local Database (PostgreSQL)</div>
-
-      <div class="cfg-field">
-        <label>Connection</label>
-        <div class="cfg-static-value mono" id="cfg-db-url">-</div>
-      </div>
-
-      <div class="cfg-field">
-        <label>Status</label>
-        <span id="cfg-db-status" class="cfg-hint">-</span>
-      </div>
-    </div>
-
-    <div class="cfg-section">
-      <div class="cfg-section-label">LLM Model (Anthropic)</div>
-
-      <div class="cfg-field">
-        <label for="cfg-anthropic-key">Anthropic API Key</label>
-        <div class="cfg-secret-wrap">
-          <input type="password" id="cfg-anthropic-key" class="cfg-input cfg-input--secret"
-                 placeholder="Leave blank to keep existing" autocomplete="new-password" />
-          <button class="cfg-eye-btn" data-target="cfg-anthropic-key" title="Show / hide">&#128065;</button>
-        </div>
-        <span id="cfg-anthropic-key-hint" class="cfg-hint"></span>
-      </div>
-
-      <div class="cfg-field">
-        <label for="cfg-model">Model</label>
-        <div class="cfg-model-row">
-          <select id="cfg-model" class="cfg-input cfg-select">
-            <option value="">Loading models…</option>
-          </select>
-          <button id="cfg-refresh-models" class="cfg-icon-btn" title="Refresh model list">&#8635;</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="cfg-actions">
-      <button id="cfg-save-btn" class="btn-primary cfg-save-btn">Save &amp; Apply</button>
-      <button id="cfg-cancel-btn" class="cfg-cancel-btn">Cancel</button>
-    </div>
-  </aside>
-
-  <!-- Control Panel -->
-  <main id="rca-page" class="container">
-    <section class="card controls-card">
-      <h2 class="section-title">Analysis Configuration</h2>
-
-      <!-- Row 1: Quick range + date pickers -->
-      <div class="controls-row controls-row--top">
-        <div class="control-group">
-          <label for="data-source-select">Data Source</label>
-          <select id="data-source-select" class="select-input"></select>
-        </div>
-
-        <div class="control-group">
-          <label>Quick Range</label>
-          <div class="btn-group" id="time-range-group">
-            <button class="btn-range active" data-range="1h">Last 1 Hour</button>
-            <button class="btn-range" data-range="1d">Last 1 Day</button>
-            <button class="btn-range" data-range="1w">Last 1 Week</button>
-          </div>
-        </div>
-
-        <div class="date-range-group">
-          <div class="control-group">
-            <label for="date-from">From</label>
-            <input type="datetime-local" id="date-from" class="date-input" />
-          </div>
-          <span class="date-range-sep">→</span>
-          <div class="control-group">
-            <label for="date-to">To</label>
-            <input type="datetime-local" id="date-to" class="date-input" />
-          </div>
-        </div>
-      </div>
-
-      <!-- Row 2: Additional filter + Status filter + Fetch button -->
-      <div class="controls-row controls-row--bottom">
-        <div class="control-group" style="flex:1;">
-          <label for="component-input">Additional Search <span class="optional">(optional)</span></label>
-          <input
-            type="text"
-            id="component-input"
-            class="text-input"
-            style="width:100%;"
-            placeholder="e.g. component name, file name, or file trace ID"
-          />
-        </div>
-        <div class="control-group">
-          <label>Status Filter</label>
-          <div class="btn-group" id="status-filter-group">
-            <button class="btn-range active" id="filter-failures" data-failure-only="true">Failures Only</button>
-            <button class="btn-range" id="filter-all" data-failure-only="false">All Records</button>
-          </div>
-        </div>
-        <div class="control-group control-group--action">
-          <button id="analyze-btn" class="btn-primary">
-            <span id="btn-text">Fetch Records</span>
-            <span id="btn-spinner" class="spinner hidden"></span>
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <!-- Error banner -->
-    <div id="error-banner" class="error-banner hidden"></div>
-
-    <!-- ── Step 1 Results: Failures table ─────────────────────────────── -->
-    <section id="failures-section" class="hidden">
-      <div class="card failures-card">
-        <div class="failures-card-header">
-          <div>
-            <h2 class="section-title" id="records-section-title">Records</h2>
-            <p class="failures-hint">Select one or more rows, then click <strong>Analyze Root Cause</strong>.</p>
-          </div>
-          <span id="failures-count-badge" class="badge badge--idle">0 records</span>
-        </div>
-
-        <div class="table-scroll">
-          <table class="failures-table">
-            <thead>
-              <tr>
-                <th class="cb-col">
-                  <input type="checkbox" id="select-all-cb" title="Select / deselect all" />
-                </th>
-                <th>Component</th>
-                <!-- <th>Stage</th> -->
-                <th>File Name</th>
-                <th>File Trace ID</th>
-                <th>Device ID</th>
-                <th>Created</th>
-                <th>Error Code</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody id="failures-tbody"></tbody>
-          </table>
-        </div>
-
-        <!-- Pagination bar -->
-        <div class="pagination-bar">
-          <div class="pagination-left">
-            <label for="page-size-select">Rows per page:</label>
-            <select id="page-size-select">
-              <option value="5">5</option>
-              <option value="10" selected>10</option>
-              <option value="20">20</option>
-              <option value="50">50</option>
-            </select>
-          </div>
-          <div class="pagination-center">
-            <span id="pagination-info">–</span>
-          </div>
-          <div class="pagination-right">
-            <button id="pg-first"  class="pg-btn" title="First page">&laquo;</button>
-            <button id="pg-prev"   class="pg-btn" title="Previous page">&lsaquo;</button>
-            <button id="pg-next"   class="pg-btn" title="Next page">&rsaquo;</button>
-            <button id="pg-last"   class="pg-btn" title="Last page">&raquo;</button>
-          </div>
-        </div>
-
-        <!-- Selection action bar -->
-        <div class="selection-bar">
-          <span id="selection-count" class="selection-count">0 selected</span>
-          <div class="log-backend-group">
-            <label for="log-backend-select">Log Backend</label>
-            <select id="log-backend-select" class="select-input"></select>
-          </div>
-          <button id="rca-btn" class="btn-rca" disabled>
-            <span id="rca-btn-text">Analyze Root Cause</span>
-            <span id="rca-spinner" class="spinner hidden"></span>
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <!-- ── Step 2 Results: RCA ─────────────────────────────────────────── -->
-    <section id="results" class="hidden">
-      <!-- Summary card -->
-      <div class="card summary-card">
-        <div class="summary-header">
-          <h2 class="section-title">Executive Summary</h2>
-          <span id="analyzed-at" class="timestamp"></span>
-        </div>
-        <p id="summary-text" class="summary-text"></p>
-        <div class="stats-row">
-          <div class="stat-box">
-            <span id="stat-total" class="stat-number">0</span>
-            <span class="stat-label">Total Failures</span>
-          </div>
-          <div class="stat-box">
-            <span id="stat-groups" class="stat-number">0</span>
-            <span class="stat-label">Root Cause Groups</span>
-          </div>
-          <div class="stat-box">
-            <span id="stat-range" class="stat-number">-</span>
-            <span class="stat-label">Time Range</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Failure groups -->
-      <h2 class="section-title groups-title">Failure Groups</h2>
-      <div id="groups-container"></div>
-
-      <!-- Related code changes (GitHub MCP) -->
-      <div id="code-analysis-card" class="card code-analysis-card hidden">
-        <h2 class="section-title">Related Code Changes</h2>
-        <p id="code-analysis-meta" class="code-analysis-meta"></p>
-        <div id="code-analysis-list" class="code-analysis-list"></div>
-      </div>
-    </section>
-
-    <!-- Empty state -->
-    <div id="empty-state" class="empty-state hidden">
-      <span class="empty-icon">&#10003;</span>
-      <p>No failures found for the selected time range.</p>
-    </div>
-  </main>
-
-  <!-- ── Source Code Intelligence page ──────────────────────────────────── -->
-  <main id="source-page" class="container hidden">
-    <section class="card">
-      <div class="github-repo-header">
-        <div>
-          <h2 class="section-title">Repository</h2>
-          <p id="github-repo-name" class="github-repo-name">-</p>
-          <p id="github-repo-desc" class="github-repo-desc"></p>
-        </div>
-        <a id="github-repo-link" class="btn-primary github-repo-link hidden" target="_blank" rel="noopener noreferrer">Open on GitHub</a>
-      </div>
-      <div id="github-not-configured" class="empty-state hidden">
-        <span class="empty-icon">&#9881;</span>
-        <p>GitHub is not configured. Set <strong>GITHUB_REPO</strong> and <strong>GITHUB_TOKEN</strong> in Configuration.</p>
-      </div>
-      <div id="github-error" class="error-banner hidden"></div>
-    </section>
-
-    <section class="card">
-      <div class="github-section-header">
-        <h2 class="section-title">Branches</h2>
-        <button id="github-branches-refresh" class="cfg-icon-btn" title="Refresh">&#8635;</button>
-      </div>
-      <div id="github-branches-list" class="github-branches-list"></div>
-    </section>
-
-    <section class="card">
-      <div class="github-section-header">
-        <h2 class="section-title">Pull Requests</h2>
-        <div class="btn-group" id="github-pr-state-group">
-          <button class="btn-range active" data-state="open">Open</button>
-          <button class="btn-range" data-state="closed">Closed</button>
-          <button class="btn-range" data-state="all">All</button>
-        </div>
-        <button id="github-prs-refresh" class="cfg-icon-btn" title="Refresh">&#8635;</button>
-      </div>
-      <div id="github-prs-list" class="github-prs-list"></div>
-    </section>
-
-    <section id="code-review-section" class="card hidden">
-      <div class="github-section-header">
-        <h2 class="section-title">AI Code Review — <span id="code-review-target"></span></h2>
-        <button id="code-review-close" class="cfg-icon-btn" title="Close">&#10005;</button>
-      </div>
-      <div id="code-review-body"></div>
-    </section>
-  </main>
-
-  <script src="/assets/app.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

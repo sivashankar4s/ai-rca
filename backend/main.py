@@ -7,6 +7,7 @@ in by their respective work units.
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from backend.routers.analysis import router as analysis_router
 
@@ -31,3 +32,6 @@ app.include_router(analysis_router)
 async def health() -> dict[str, str]:
     """Deployment liveness probe."""
     return {"status": "ok"}
+
+
+app.mount("/", StaticFiles(directory="frontend", html=True), name="static")
