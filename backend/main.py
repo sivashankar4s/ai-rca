@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from backend.routers.analysis import router as analysis_router
+from backend.routers.github import router as github_router
 
 app = FastAPI(
     title="AI Root Cause Analyzer",
@@ -26,6 +27,7 @@ app.add_middleware(
 
 
 app.include_router(analysis_router)
+app.include_router(github_router)
 
 
 @app.get("/api/health")

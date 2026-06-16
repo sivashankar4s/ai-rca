@@ -65,3 +65,76 @@ class FailuresResponse(BaseModel):
     total: int
     time_range: TimeRange
     records: list[FailureRecord]
+
+
+# ── GitHub / Source Code Intelligence ─────────────────────────────────────────
+
+
+class RepoInfo(BaseModel):
+    configured: bool
+    repo: str | None = None
+    owner: str | None = None
+    name: str | None = None
+    default_branch: str | None = None
+    description: str | None = None
+    url: str | None = None
+    error: str | None = None
+
+
+class BranchInfo(BaseModel):
+    name: str
+    sha: str | None = None
+    protected: bool = False
+
+
+class BranchesResponse(BaseModel):
+    repo: str
+    branches: list[BranchInfo] = []
+    error: str | None = None
+
+
+class PullRequestInfo(BaseModel):
+    number: int
+    title: str
+    state: str
+    author: str | None = None
+    url: str | None = None
+    updated_at: str | None = None
+    branch: str | None = None
+
+
+class PullRequestsResponse(BaseModel):
+    repo: str
+    pull_requests: list[PullRequestInfo] = []
+    error: str | None = None
+
+
+class CodeReviewFinding(BaseModel):
+    severity: str
+    category: str
+    file: str | None = None
+    line: int | None = None
+    title: str
+    description: str
+    recommendation: str | None = None
+
+
+class CodeReviewResult(BaseModel):
+    repo: str
+    target: str
+    summary: str = ""
+    findings: list[CodeReviewFinding] = []
+    error: str | None = None
+
+
+class PostedReviewResult(BaseModel):
+    """Response DTO for POST .../review/comments (spec 003-inline-pr-comments)."""
+
+    repo: str = ""
+    target: str = ""
+    posted: bool = False
+    review_url: str | None = None
+    inline_comment_count: int = 0
+    summary_only_count: int = 0
+    verdict: str = "COMMENT"
+    error: str | None = None

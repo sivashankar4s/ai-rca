@@ -39,9 +39,16 @@ class Settings(BaseSettings):
     athena_table: str = "failure_events"
     athena_output_bucket: str = ""
 
+    # LLM — defaults allow the app to boot with no .env; real calls need keys set.
+    llm_provider: str = "navify"
+    llm_base_url: str = ""
+    llm_api_key: str = ""
+    llm_model: str = "gpt-4o"
+
     # GitHub MCP (related code changes) — optional; empty means the feature is off.
     github_repo: str = ""
     github_token: str = ""
+    github_mcp_command: str = "github-mcp-server stdio"
 
 
 settings = Settings()

@@ -79,6 +79,47 @@
   <!-- Pagination -->
   <div class="pagination" id="pagination" style="display:none"></div>
 
+  <!-- ── GitHub Integration ────────────────────────────────────────────── -->
+  <section class="github-section" id="github-section" aria-label="GitHub integration">
+    <h2 class="section-title">GitHub — Source Code Intelligence</h2>
+
+    <div id="github-not-configured" class="github-notice hidden">
+      GitHub is not configured. Set <strong>GITHUB_REPO</strong> and <strong>GITHUB_TOKEN</strong>.
+    </div>
+
+    <div id="github-content">
+      <div class="github-subsection">
+        <div class="github-subsection-header">
+          <h3>Pull Requests</h3>
+          <div class="btn-group" id="github-pr-state-group">
+            <button class="btn btn-sm active" data-state="open">Open</button>
+            <button class="btn btn-sm" data-state="closed">Closed</button>
+            <button class="btn btn-sm" data-state="all">All</button>
+          </div>
+          <button class="btn btn-sm" id="github-prs-refresh" title="Refresh">&#8635;</button>
+        </div>
+        <div id="github-prs-list" class="github-list">
+          <p class="github-empty">Loading pull requests…</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Code review result panel (shared for PR and branch reviews) -->
+  <section class="code-review-section hidden" id="code-review-section" aria-label="Code review">
+    <div class="code-review-header">
+      <h2>AI Code Review — <span id="code-review-target"></span></h2>
+      <button class="btn btn-sm" id="code-review-close" title="Close">&#10005;</button>
+    </div>
+    <div id="code-review-body"></div>
+    <!-- Post to PR action (only rendered for PR reviews) -->
+    <div id="post-to-pr-panel" class="post-to-pr-panel hidden">
+      <button class="btn btn-primary" id="post-to-pr-btn" type="button">Post to PR</button>
+      <span id="post-to-pr-spinner" class="spinner hidden"></span>
+      <div id="post-to-pr-result" class="post-result hidden"></div>
+    </div>
+  </section>
+
 </main>
 
 <script src="app.js"></script>
