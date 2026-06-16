@@ -13,14 +13,14 @@ log deep-links and (optionally) related code changes. Every fetched record and
 every analysis result is persisted so recurring root-cause signatures are
 automatically linked to existing CRM-style cases.
 
-This plan documents the **existing, already-implemented** architecture as the
-baseline for feature 001: `backend/services/rca_orchestrator.py` orchestrates
-three pluggable strategy interfaces (`DataSourceStrategy`, `LLMStrategy`,
-`LogAnalysisStrategy`) selected via `backend/plugin_registry.py`, with
-persistence through `backend/repositories/*` into PostgreSQL, and an optional
-GitHub-MCP-backed code analysis agent. No new architecture is introduced by
-this plan; it captures the current system so future features can diff against
-a documented baseline.
+This plan describes the **target architecture** for feature 001, rebuilt from
+scratch (the `backend/`/`frontend/` trees are intentionally deleted in the working
+tree; git `HEAD` is reference only): `backend/services/rca_orchestrator.py`
+orchestrates three pluggable strategy interfaces (`DataSourceStrategy`, `LLMStrategy`,
+`LogAnalysisStrategy`) selected via `backend/plugin_registry.py`, with persistence
+through `backend/repositories/*` into PostgreSQL, and an optional GitHub-MCP-backed
+code analysis agent. The build follows `tasks.md` (from-scratch, TDD, MVP-first by user
+story); `data-model.md` and `contracts/api.md` define the schema and endpoints.
 
 ## Technical Context
 
