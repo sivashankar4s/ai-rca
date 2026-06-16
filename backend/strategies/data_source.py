@@ -1,21 +1,17 @@
-"""DataSourceStrategy ABC — Constitution Principle III."""
-
 from abc import ABC, abstractmethod
-from datetime import datetime
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from backend.models.schemas import FailureRecord
 
 
 class DataSourceStrategy(ABC):
-    """Abstract interface for all failure-record data sources."""
+    """Fetches raw failure/event records from any monitoring store."""
 
     @abstractmethod
     def fetch_records(
         self,
-        start: datetime,
-        end: datetime,
+        time_range: str,
         component: str | None = None,
-    ) -> "list[FailureRecord]":
-        """Return FAILED records within [start, end], optionally filtered by component."""
+        start_date: str | None = None,
+        end_date: str | None = None,
+        failure_only: bool = True,
+    ) -> list[dict]:
+        """Return a list of raw record dicts."""
+        ...

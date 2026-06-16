@@ -1,21 +1,6 @@
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["backend/tests"]
-addopts = "--cov=backend --cov-branch --cov-report=term-missing"
-
-[tool.coverage.run]
-source = ["backend"]
-branch = true
-omit = [
-    "backend/tests/*",
-    "backend/db/migrations/*",
-]
-
-[tool.coverage.report]
-show_missing = true
-exclude_lines = [
-    "if TYPE_CHECKING:",
-]
 
 [tool.ruff]
 line-length = 100

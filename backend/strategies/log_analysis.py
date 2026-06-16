@@ -1,22 +1,29 @@
-"""LogAnalysisStrategy ABC — Constitution Principle III."""
-
 from abc import ABC, abstractmethod
-from datetime import datetime
 
 
 class LogAnalysisStrategy(ABC):
-    """Abstract interface for log-backend providers."""
+    """Executes a structured log query on any observability backend."""
 
     @abstractmethod
-    def query_logs(
+    def execute_query(
         self,
         query: str,
-        start: datetime,
-        end: datetime,
-        log_group: str | None = None,
-    ) -> tuple[list[str], str]:
-        """Execute *query* against the log backend for [start, end].
+        time_range: str,
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> list[str]:
+        """Return a list of matching log line strings."""
+        ...
 
-        Returns ``(log_samples, deep_link_url)``.  Implementations MUST NOT raise
-        on empty results — return ``([], url)`` instead.
-        """
+    @abstractmethod
+    def build_deep_link(
+        self,
+        region: str,
+        log_group: str,
+        component: str,
+        time_range: str,
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> str:
+        """Return a browser-ready deep link into the observability UI."""
+        ...
