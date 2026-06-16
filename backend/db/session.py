@@ -1,17 +1,23 @@
+"""SQLAlchemy engine and session factory (Constitution Principle III).
+
+Persistence access MUST go through repositories — never import this module
+directly from services or routers.  Use FastAPI ``Depends(get_db)`` instead.
+"""
+
 from collections.abc import Generator
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from ..config import settings
+from backend.config import settings
 
-engine = create_engine(settings.database_url, pool_pre_ping=True, future=True)
+engine = create_engine(settings.database_url, pool_pre_ping=True)
 
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-def get_db() -> Generator[Session, None, None]:
-    """FastAPI dependency — yields a SQLAlchemy session and ensures it is closed."""
+def get_db() -> Generator[Session]:
+    """FastAPI dependency that yields a database session and closes it on exit."""
     db = SessionLocal()
     try:
         yield db
