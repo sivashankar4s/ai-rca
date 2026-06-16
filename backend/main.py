@@ -8,6 +8,8 @@ in by their respective work units.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.routers.analysis import router as analysis_router
+
 app = FastAPI(
     title="AI Root Cause Analyzer",
     version="1.0.0",
@@ -20,6 +22,9 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
 )
+
+
+app.include_router(analysis_router)
 
 
 @app.get("/api/health")
