@@ -1,7 +1,7 @@
 """SQLAlchemy ORM models for the AI-RCA CRM persistence layer.
 
-Only the Project table is defined in this WU (T008). FailureRecord and the
-signature/case tables are added in WU6 and WU3-US3 respectively.
+Project and FailureRecord tables are defined here. Signature/case tables are
+added in WU3-US3.
 """
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -34,3 +34,33 @@ class Project(Base):
     updated_at: Mapped[datetime] = mapped_column(
         server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+class FailureRecord(Base):
+    """A single failed production event (spec Key Entity: Failure Record)."""
+
+    __tablename__ = "failure_records"
+    __table_args__ = (
+        UniqueConstraint("project_id", "file_trace_id", name="uq_failure_project_trace"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    project_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False
+    )
+    application_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    component_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    organization: Mapped[str | None] = mapped_column(String, nullable=True)
+    file_trace_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    file_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    device_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String, nullable=True)
+    stage: Mapped[str | None] = mapped_column(String, nullable=True)
+    event_created_ts: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    event_inserted_ts: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    raw_payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    signature_hash: Mapped[str | None] = mapped_column(String, nullable=True)

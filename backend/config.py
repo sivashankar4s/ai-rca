@@ -30,6 +30,15 @@ class Settings(BaseSettings):
     # CRM persistence (PostgreSQL via SQLAlchemy + Alembic).
     database_url: str = "postgresql+psycopg2://postgres:root@localhost:5432/airca"
 
+    # AWS / Athena — optional; empty strings disable Athena data source.
+    aws_region: str = "us-east-1"
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    aws_session_token: str = ""
+    athena_database: str = "default"
+    athena_table: str = "failure_events"
+    athena_output_bucket: str = ""
+
     # GitHub MCP (related code changes) — optional; empty means the feature is off.
     github_repo: str = ""
     github_token: str = ""
