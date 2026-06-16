@@ -3,3 +3,7 @@ pytest>=8.3.0
 pytest-asyncio>=0.26.0
 pytest-cov>=6.0.0
 ruff>=0.6.0
+# HTTP/AWS/LLM mocking for provider tests (no real external calls in tests)
+responses>=0.25.0
+pytest-httpx>=0.30.0
+moto>=5.0.0
