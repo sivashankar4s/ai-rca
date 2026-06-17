@@ -28,6 +28,35 @@ WORKFLOW_STEPS = [
 ]
 
 
+def fix_mojibake(text: str) -> str:
+    """Fix UTF-8 text that was saved as cp1252 (e.g. â€" → —)."""
+    try:
+        return text.encode("cp1252").decode("utf-8")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return text
+
+
+def clean_phase_name(name: str) -> str:
+    """Strip trailing punctuation noise and fix encoding."""
+    name = fix_mojibake(name)
+    # Remove trailing separators left by some tasks.md authors
+    return name.strip(" -—–")
+
+
+def read_frontmatter_status(tasks_path: Path) -> str | None:
+    """Return the value of 'status:' in YAML frontmatter, or None if absent."""
+    lines = tasks_path.read_text(encoding="utf-8").splitlines()
+    if not lines or lines[0].strip() != "---":
+        return None
+    for line in lines[1:]:
+        if line.strip() == "---":
+            break
+        m = re.match(r"^status:\s*(.+)", line, re.IGNORECASE)
+        if m:
+            return m.group(1).strip().lower()
+    return None
+
+
 def parse_tasks(tasks_path: Path) -> dict[str, dict[str, int]]:
     phases: dict[str, dict[str, int]] = {}
     current_phase = None
@@ -35,7 +64,7 @@ def parse_tasks(tasks_path: Path) -> dict[str, dict[str, int]]:
     for line in tasks_path.read_text(encoding="utf-8").splitlines():
         phase_match = re.match(r"^## (Phase \d+[^#]*)", line)
         if phase_match:
-            current_phase = phase_match.group(1).strip()
+            current_phase = clean_phase_name(phase_match.group(1))
             phases[current_phase] = {"done": 0, "total": 0}
             continue
 
@@ -62,7 +91,15 @@ def task_progress(feature_dir: Path) -> tuple[int, int]:
     return done, total
 
 
-def overall_status(artifacts: dict[str, bool], done: int, total: int) -> str:
+def is_manually_done(feature_dir: Path) -> bool:
+    """Return True if tasks.md frontmatter has 'status: done'."""
+    tasks_path = feature_dir / "tasks.md"
+    return tasks_path.exists() and read_frontmatter_status(tasks_path) == "done"
+
+
+def overall_status(artifacts: dict[str, bool], done: int, total: int, manually_done: bool = False) -> str:
+    if manually_done:
+        return "✅ Done"
     if not artifacts.get("Spec"):
         return "💡 Planned"
     if not artifacts.get("Tasks"):
@@ -83,6 +120,7 @@ def phase_summary_table(feature_dir: Path) -> str:
     if not tasks_path.exists():
         return f"_No tasks.md found for `{feature_dir.name}`_\n"
 
+    manually_done = read_frontmatter_status(tasks_path) == "done"
     phases = parse_tasks(tasks_path)
     if not phases:
         return f"_No tasks found in `{feature_dir.name}/tasks.md`_\n"
@@ -91,10 +129,11 @@ def phase_summary_table(feature_dir: Path) -> str:
     total_tasks = sum(p["total"] for p in phases.values())
     pct = int(total_done / total_tasks * 100) if total_tasks else 0
 
+    overall = "✅ Done (shipped)" if manually_done else f"{total_done}/{total_tasks} tasks ({pct}%)"
     lines = [
         f"## `{feature_dir.name}`",
         "",
-        f"**Overall: {total_done}/{total_tasks} tasks ({pct}%)**",
+        f"**Overall: {overall}**",
         "",
         "| Phase | Done | Total | Status |",
         "|-------|:----:|:-----:|--------|",
@@ -103,7 +142,9 @@ def phase_summary_table(feature_dir: Path) -> str:
     for phase, counts in phases.items():
         done = counts["done"]
         total = counts["total"]
-        if total == 0:
+        if manually_done:
+            status = "✅ Done"
+        elif total == 0:
             status = "—"
         elif done == total:
             status = "✅ Done"
@@ -144,7 +185,8 @@ def wiki_overview_table(dirs: list[Path]) -> str:
         name = "-".join(d.name.split("-")[1:]).replace("-", " ").title()
         artifacts = artifact_presence(d)
         done, total = task_progress(d)
-        status = overall_status(artifacts, done, total)
+        manually_done = is_manually_done(d)
+        status = overall_status(artifacts, done, total, manually_done)
 
         cells = " | ".join(wiki_step_cell(artifacts.get(s, False)) for s in step_names)
         progress = f"{done}/{total}" if total else "—"
