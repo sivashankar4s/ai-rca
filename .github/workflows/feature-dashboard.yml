@@ -1,0 +1,92 @@
+name: Feature Dashboard
+
+on:
+  workflow_dispatch:
+    inputs:
+      feature:
+        description: 'Feature number (e.g. 004) or "all"'
+        required: false
+        default: 'all'
+      test_path:
+        description: 'Test path override (e.g. backend/tests/routers/test_analysis.py). Leave blank to auto-detect from diff.'
+        required: false
+        default: ''
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  task-status:
+    name: Task Status
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect feature
+        id: detect
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            FEATURE="${{ inputs.feature }}"
+          else
+            BRANCH="${{ github.head_ref }}"
+            FEATURE=$(echo "$BRANCH" | grep -oP '(?<=feature/)\d+' || echo "all")
+          fi
+          echo "feature=$FEATURE" >> $GITHUB_OUTPUT
+          echo "Detected feature: $FEATURE"
+
+      - name: Generate task status report
+        run: python3 scripts/feature_status.py "${{ steps.detect.outputs.feature }}" >> $GITHUB_STEP_SUMMARY
+
+  feature-tests:
+    name: Feature Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Detect test files
+        id: tests
+        run: |
+          OVERRIDE="${{ inputs.test_path }}"
+          if [ -n "$OVERRIDE" ]; then
+            echo "paths=$OVERRIDE" >> $GITHUB_OUTPUT
+            echo "Using override: $OVERRIDE"
+            exit 0
+          fi
+
+          BASE="${{ github.base_ref || 'develop' }}"
+          CHANGED=$(git diff --name-only "origin/$BASE...HEAD" 2>/dev/null | grep '^backend/tests/.*\.py$' || true)
+
+          if [ -z "$CHANGED" ]; then
+            echo "No feature test files detected in diff — running full suite"
+            echo "paths=backend/tests" >> $GITHUB_OUTPUT
+          else
+            PATHS=$(echo "$CHANGED" | tr '\n' ' ')
+            echo "paths=$PATHS" >> $GITHUB_OUTPUT
+            echo "Detected test files: $PATHS"
+          fi
+
+      - name: Run tests
+        run: |
+          pytest ${{ steps.tests.outputs.paths }} -v --tb=short \
+            --cov=backend --cov-report=term-missing \
+            2>&1 | tee /tmp/test-output.txt
+          EXIT_CODE=${PIPESTATUS[0]}
+
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -40 /tmp/test-output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+          exit $EXIT_CODE
