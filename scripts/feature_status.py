@@ -200,18 +200,19 @@ def wiki_feature_detail(feature_dir: Path) -> str:
     if not tasks_path.exists():
         return ""
 
+    manually_done = read_frontmatter_status(tasks_path) == "done"
     phases = parse_tasks(tasks_path)
     if not phases:
         return ""
 
     total_done = sum(p["done"] for p in phases.values())
     total_tasks = sum(p["total"] for p in phases.values())
-    pct = int(total_done / total_tasks * 100) if total_tasks else 0
 
     name = "-".join(feature_dir.name.split("-")[1:]).replace("-", " ").title()
+    summary = "✅ Shipped" if manually_done else f"{total_done}/{total_tasks} tasks ({int(total_done/total_tasks*100) if total_tasks else 0}%)"
     lines = [
         f"### {feature_dir.name}",
-        f"**{name}** — {total_done}/{total_tasks} tasks ({pct}%)",
+        f"**{name}** — {summary}",
         "",
         "| Phase | Done | Total | Status |",
         "|-------|:----:|:-----:|--------|",
@@ -220,7 +221,9 @@ def wiki_feature_detail(feature_dir: Path) -> str:
     for phase, counts in phases.items():
         done = counts["done"]
         total = counts["total"]
-        if total == 0:
+        if manually_done:
+            status = "✅ Done"
+        elif total == 0:
             status = "—"
         elif done == total:
             status = "✅ Done"
