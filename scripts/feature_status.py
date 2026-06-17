@@ -28,6 +28,21 @@ WORKFLOW_STEPS = [
 ]
 
 
+def fix_mojibake(text: str) -> str:
+    """Fix UTF-8 text that was saved as cp1252 (e.g. â€" → —)."""
+    try:
+        return text.encode("cp1252").decode("utf-8")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return text
+
+
+def clean_phase_name(name: str) -> str:
+    """Strip trailing punctuation noise and fix encoding."""
+    name = fix_mojibake(name)
+    # Remove trailing separators left by some tasks.md authors
+    return name.strip(" -—–")
+
+
 def parse_tasks(tasks_path: Path) -> dict[str, dict[str, int]]:
     phases: dict[str, dict[str, int]] = {}
     current_phase = None
@@ -35,7 +50,7 @@ def parse_tasks(tasks_path: Path) -> dict[str, dict[str, int]]:
     for line in tasks_path.read_text(encoding="utf-8").splitlines():
         phase_match = re.match(r"^## (Phase \d+[^#]*)", line)
         if phase_match:
-            current_phase = phase_match.group(1).strip()
+            current_phase = clean_phase_name(phase_match.group(1))
             phases[current_phase] = {"done": 0, "total": 0}
             continue
 

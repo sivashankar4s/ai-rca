@@ -22,25 +22,24 @@ jobs:
           fetch-depth: 0
 
       - name: Generate wiki page
-        run: python3 scripts/feature_status.py --wiki all > /tmp/Feature-Status.md
+        run: python3 scripts/feature_status.py --wiki all > /tmp/feature-status.md
 
       - name: Preview (job summary)
-        run: cat /tmp/Feature-Status.md >> $GITHUB_STEP_SUMMARY
+        run: cat /tmp/feature-status.md >> $GITHUB_STEP_SUMMARY
 
       - name: Clone wiki repo
         run: |
           git clone \
             "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git" \
             /tmp/wiki
-        continue-on-error: false
 
       - name: Commit and push to wiki
         run: |
-          cp /tmp/Feature-Status.md /tmp/wiki/Feature-Status.md
+          cp /tmp/feature-status.md /tmp/wiki/feature-status.md
           cd /tmp/wiki
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
-          git add Feature-Status.md
+          git add feature-status.md
           git diff --cached --quiet && echo "No changes" || \
             git commit -m "chore: update feature status $(date -u '+%Y-%m-%d %H:%M UTC')"
           git push
