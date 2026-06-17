@@ -1,0 +1,31 @@
+> """Analysis router — POST /api/failures endpoint (FR-001, FR-002)."""
+  
+> from datetime import UTC, datetime, timedelta
+  
+> from fastapi import APIRouter
+  
+> from backend.models.schemas import FailuresRequest, FailuresResponse, TimeRange
+> from backend.plugin_registry import get_data_source
+  
+> router = APIRouter(prefix="/api", tags=["analysis"])
+  
+> _WINDOW: dict[TimeRange, timedelta] = {
+>     TimeRange.ONE_HOUR: timedelta(hours=1),
+>     TimeRange.ONE_DAY: timedelta(days=1),
+>     TimeRange.ONE_WEEK: timedelta(weeks=1),
+> }
+  
+  
+> @router.post("/failures", response_model=FailuresResponse)
+> async def post_failures(body: FailuresRequest) -> FailuresResponse:
+>     """Fetch FAILED records for the requested time window and optional component."""
+>     if body.time_range == TimeRange.CUSTOM:
+>         start, end = body.start, body.end
+>     else:
+>         now = datetime.now(UTC)
+>         start = now - _WINDOW[body.time_range]
+>         end = now
+  
+>     ds = get_data_source(body.data_source)
+>     records = ds.fetch_records(start, end, body.component)
+>     return FailuresResponse(total=len(records), time_range=body.time_range, records=records)

@@ -52,9 +52,7 @@ class TestLocalFileDataSource:
     def test_component_filter_narrows_results(self) -> None:
         ds = LocalFileDataSource(SAMPLE_PATH)
         all_records = ds.fetch_records(_NAIVE_START, _NAIVE_END)
-        filtered = ds.fetch_records(
-            _NAIVE_START, _NAIVE_END, component="dp-lz-s3-event-processor"
-        )
+        filtered = ds.fetch_records(_NAIVE_START, _NAIVE_END, component="dp-lz-s3-event-processor")
         assert len(filtered) < len(all_records)
         assert all(r.component_name == "dp-lz-s3-event-processor" for r in filtered)
 
