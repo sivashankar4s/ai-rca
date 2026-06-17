@@ -114,7 +114,9 @@ def test_get_repo_info_mcp_error():
     try:
         settings.github_repo = "owner/repo"
         settings.github_token = "fake-token"
-        with patch("backend.services.github_service.call_github_tool", side_effect=RuntimeError("err")):
+        with patch(
+            "backend.services.github_service.call_github_tool", side_effect=RuntimeError("err")
+        ):
             result = github_service.get_repo_info()
         assert result.error == "err"
     finally:
@@ -184,7 +186,9 @@ def test_list_branches_mcp_error():
     try:
         settings.github_repo = "owner/repo"
         settings.github_token = "fake-token"
-        with patch("backend.services.github_service.call_github_tool", side_effect=RuntimeError("err")):
+        with patch(
+            "backend.services.github_service.call_github_tool", side_effect=RuntimeError("err")
+        ):
             result = github_service.list_branches()
         assert result.error == "err"
     finally:
@@ -263,7 +267,9 @@ def test_list_pull_requests_mcp_error():
     try:
         settings.github_repo = "owner/repo"
         settings.github_token = "fake-token"
-        with patch("backend.services.github_service.call_github_tool", side_effect=RuntimeError("err")):
+        with patch(
+            "backend.services.github_service.call_github_tool", side_effect=RuntimeError("err")
+        ):
             result = github_service.list_pull_requests()
         assert result.error == "err"
     finally:

@@ -541,3 +541,186 @@ githubPrStateGroup.addEventListener('click', (e) => {
 
 // Kick off initial load
 loadGithubPullRequests();
+
+// ── Config Page ────────────────────────────────────────────────────────────
+
+const MASK_SENTINEL = '••••••••';
+
+const navAnalysis      = document.getElementById('nav-analysis');
+const navConfig        = document.getElementById('nav-config');
+const analysisView     = document.getElementById('analysis-view');
+const configSection    = document.getElementById('config-section');
+
+const awsStatusBadge       = document.getElementById('aws-status-badge');
+const awsKeyIdInput        = document.getElementById('config-aws-key-id');
+const awsSecretInput       = document.getElementById('config-aws-secret');
+const awsRegionInput       = document.getElementById('config-aws-region');
+const awsKeyIdError        = document.getElementById('config-aws-key-id-error');
+const awsSecretError       = document.getElementById('config-aws-secret-error');
+const awsSaveForm          = document.getElementById('config-aws-form');
+const awsFeedback          = document.getElementById('config-aws-feedback');
+
+const githubMcpStatusBadge = document.getElementById('github-mcp-status-badge');
+const githubRepoInput      = document.getElementById('config-github-repo');
+const githubTokenInput     = document.getElementById('config-github-token');
+const githubBranchInput    = document.getElementById('config-github-branch');
+const githubRepoError      = document.getElementById('config-github-repo-error');
+const githubTokenError     = document.getElementById('config-github-token-error');
+const githubMcpSaveForm    = document.getElementById('config-github-mcp-form');
+const githubMcpFeedback    = document.getElementById('config-github-mcp-feedback');
+
+function _setBadge(badgeEl, configured) {
+  badgeEl.textContent = configured ? 'Configured' : 'Not Configured';
+  badgeEl.classList.toggle('config-status-badge--configured', configured);
+  badgeEl.classList.toggle('config-status-badge--not-configured', !configured);
+}
+
+function _showFeedback(el, message, isError) {
+  el.textContent = message;
+  el.classList.remove('hidden', 'config-feedback--success', 'config-feedback--error');
+  el.classList.add(isError ? 'config-feedback--error' : 'config-feedback--success');
+}
+
+async function loadConfigPage() {
+  try {
+    const resp = await fetch('/api/config');
+    const data = await resp.json();
+
+    const aws = data.aws;
+    awsKeyIdInput.value    = aws.access_key_id || '';
+    awsSecretInput.value   = aws.secret_access_key || '';
+    awsRegionInput.value   = aws.region || '';
+    _setBadge(awsStatusBadge, aws.configured);
+
+    const github = data.github_mcp;
+    githubRepoInput.value   = github.repo || '';
+    githubTokenInput.value  = github.token || '';
+    githubBranchInput.value = github.default_branch || '';
+    _setBadge(githubMcpStatusBadge, github.configured);
+  } catch (e) {
+    awsFeedback.textContent = 'Failed to load configuration.';
+    awsFeedback.classList.remove('hidden');
+  }
+}
+
+function _clearFieldError(inputEl, errorEl) {
+  errorEl.textContent = '';
+  errorEl.classList.add('hidden');
+  inputEl.classList.remove('config-field--invalid');
+}
+
+function _showFieldError(inputEl, errorEl, message) {
+  errorEl.textContent = message;
+  errorEl.classList.remove('hidden');
+  inputEl.classList.add('config-field--invalid');
+}
+
+awsSaveForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  _clearFieldError(awsKeyIdInput, awsKeyIdError);
+  _clearFieldError(awsSecretInput, awsSecretError);
+  awsFeedback.classList.add('hidden');
+
+  const keyId  = awsKeyIdInput.value.trim();
+  const secret = awsSecretInput.value;
+  const region = awsRegionInput.value.trim();
+
+  let valid = true;
+  if (!keyId) {
+    _showFieldError(awsKeyIdInput, awsKeyIdError, 'Access Key ID is required.');
+    valid = false;
+  }
+  if (!secret) {
+    _showFieldError(awsSecretInput, awsSecretError, 'Secret Access Key is required.');
+    valid = false;
+  }
+  if (!valid) return;
+
+  const isClearing = !secret || (secret !== MASK_SENTINEL && !secret.trim());
+  if (isClearing) {
+    if (!window.confirm('This will remove the stored Secret Access Key. Are you sure?')) return;
+  }
+
+  try {
+    const resp = await fetch('/api/config/aws', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ access_key_id: keyId, secret_access_key: secret, region: region || undefined }),
+    });
+    const data = await resp.json();
+    if (resp.ok && data.success) {
+      _showFeedback(awsFeedback, 'AWS configuration saved.', false);
+      await loadConfigPage();
+    } else {
+      const msg = data.detail ? JSON.stringify(data.detail) : 'Failed to save AWS configuration.';
+      _showFeedback(awsFeedback, msg, true);
+    }
+  } catch (err) {
+    _showFeedback(awsFeedback, `Error: ${err.message}`, true);
+  }
+});
+
+githubMcpSaveForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  _clearFieldError(githubRepoInput, githubRepoError);
+  _clearFieldError(githubTokenInput, githubTokenError);
+  githubMcpFeedback.classList.add('hidden');
+
+  const repo   = githubRepoInput.value.trim();
+  const token  = githubTokenInput.value;
+  const branch = githubBranchInput.value.trim();
+
+  let valid = true;
+  if (!repo || !repo.includes('/')) {
+    _showFieldError(githubRepoInput, githubRepoError, 'Repository must be in owner/repo format.');
+    valid = false;
+  }
+  if (!token) {
+    _showFieldError(githubTokenInput, githubTokenError, 'Personal Access Token is required.');
+    valid = false;
+  }
+  if (!valid) return;
+
+  const isClearing = !token || (token !== MASK_SENTINEL && !token.trim());
+  if (isClearing) {
+    if (!window.confirm('This will remove the stored Personal Access Token. Are you sure?')) return;
+  }
+
+  try {
+    const resp = await fetch('/api/config/github-mcp', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repo, token, default_branch: branch || undefined }),
+    });
+    const data = await resp.json();
+    if (resp.ok && data.success) {
+      _showFeedback(githubMcpFeedback, 'GitHub MCP configuration saved.', false);
+      await loadConfigPage();
+    } else {
+      const msg = data.detail ? JSON.stringify(data.detail) : 'Failed to save GitHub MCP configuration.';
+      _showFeedback(githubMcpFeedback, msg, true);
+    }
+  } catch (err) {
+    _showFeedback(githubMcpFeedback, `Error: ${err.message}`, true);
+  }
+});
+
+// ── Navigation ─────────────────────────────────────────────────────────────
+
+function showAnalysis() {
+  analysisView.classList.remove('hidden');
+  configSection.classList.add('hidden');
+  navAnalysis.classList.add('active');
+  navConfig.classList.remove('active');
+}
+
+function showConfig() {
+  analysisView.classList.add('hidden');
+  configSection.classList.remove('hidden');
+  navConfig.classList.add('active');
+  navAnalysis.classList.remove('active');
+  loadConfigPage();
+}
+
+navAnalysis.addEventListener('click', showAnalysis);
+navConfig.addEventListener('click', showConfig);

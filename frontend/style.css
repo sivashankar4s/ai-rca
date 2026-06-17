@@ -32,7 +32,28 @@ header {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
+
+/* ── App navigation ────────────────────────────────────────────────────────── */
+.app-nav {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.nav-tab {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 5px 14px;
+  transition: background .15s, color .15s;
+}
+.nav-tab:hover { background: rgba(255,255,255,.05); color: var(--text); }
+.nav-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 header h1 { font-size: 18px; font-weight: 600; }
 header .badge {
@@ -468,6 +489,95 @@ a.github-pr-title:hover { color: var(--accent); text-decoration: underline; }
   color: var(--success);
 }
 .post-result--error {
+  background: rgba(240,71,71,.1);
+  border: 1px solid rgba(240,71,71,.3);
+  color: var(--danger);
+}
+
+/* ── Config Page ──────────────────────────────────────────────────────────── */
+
+#config-section { padding: 20px 0; }
+#config-section .section-title { margin-bottom: 20px; }
+
+.config-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 20px;
+  padding: 20px 24px;
+}
+
+.config-card-header {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.config-card-header h3 { font-size: 15px; font-weight: 600; }
+
+.config-status-badge {
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.config-status-badge--configured {
+  background: rgba(67,181,129,.2);
+  color: var(--success);
+}
+.config-status-badge--not-configured {
+  background: rgba(136,146,164,.15);
+  color: var(--muted);
+}
+
+.config-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 14px;
+}
+.config-field label {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+}
+.config-field .required { color: var(--danger); margin-left: 2px; }
+.config-field .optional { color: var(--muted); font-size: 12px; font-weight: 400; }
+.config-field input[type="text"],
+.config-field input[type="password"] {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  max-width: 480px;
+  outline: none;
+  padding: 8px 10px;
+  transition: border-color .15s;
+}
+.config-field input:focus { border-color: var(--accent); }
+.config-field input.config-field--invalid { border-color: var(--danger); }
+
+.config-field-error {
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.config-feedback {
+  border-radius: var(--radius);
+  font-size: 13px;
+  margin-top: 12px;
+  padding: 8px 12px;
+}
+.config-feedback--success {
+  background: rgba(67,181,129,.12);
+  border: 1px solid rgba(67,181,129,.3);
+  color: var(--success);
+}
+.config-feedback--error {
   background: rgba(240,71,71,.1);
   border: 1px solid rgba(240,71,71,.3);
   color: var(--danger);

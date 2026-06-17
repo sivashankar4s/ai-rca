@@ -75,7 +75,10 @@ def test_review_pull_request_mcp_error():
     try:
         settings.github_repo = "owner/repo"
         settings.github_token = "fake-token"
-        with patch("backend.services.code_review_service.call_github_tool", side_effect=RuntimeError("MCP down")):
+        with patch(
+            "backend.services.code_review_service.call_github_tool",
+            side_effect=RuntimeError("MCP down"),
+        ):
             result = code_review_service.review_pull_request(42)
         assert result.error == "MCP down"
     finally:
@@ -87,8 +90,13 @@ def test_review_pull_request_non_string_diff():
     try:
         settings.github_repo = "owner/repo"
         settings.github_token = "fake-token"
-        with patch("backend.services.code_review_service.call_github_tool", return_value={"diff": "some diff"}), \
-             patch("backend.services.code_review_service.get_llm") as mock_llm:
+        with (
+            patch(
+                "backend.services.code_review_service.call_github_tool",
+                return_value={"diff": "some diff"},
+            ),
+            patch("backend.services.code_review_service.get_llm") as mock_llm,
+        ):
             mock_llm.return_value.invoke.return_value = '{"summary": "ok", "findings": []}'
             result = code_review_service.review_pull_request(42)
         assert result.error is None
@@ -125,8 +133,10 @@ def test_review_branch_success():
         settings.github_token = "fake-token"
         commit = {"files": [{"filename": "app/db.py", "patch": "+cursor.execute(...)"}]}
 
-        with patch("backend.services.code_review_service.call_github_tool", return_value=commit), \
-             patch("backend.services.code_review_service.get_llm") as mock_get_llm:
+        with (
+            patch("backend.services.code_review_service.call_github_tool", return_value=commit),
+            patch("backend.services.code_review_service.get_llm") as mock_get_llm,
+        ):
             mock_get_llm.return_value.invoke.return_value = _REVIEW_JSON
             result = code_review_service.review_branch("feature/foo")
 
@@ -145,8 +155,10 @@ def test_review_branch_no_patches():
         settings.github_token = "fake-token"
         commit = {"files": [{"filename": "README.md"}]}
 
-        with patch("backend.services.code_review_service.call_github_tool", return_value=commit), \
-             patch("backend.services.code_review_service.get_llm") as mock_get_llm:
+        with (
+            patch("backend.services.code_review_service.call_github_tool", return_value=commit),
+            patch("backend.services.code_review_service.get_llm") as mock_get_llm,
+        ):
             mock_get_llm.return_value.invoke.return_value = '{"summary": "ok", "findings": []}'
             result = code_review_service.review_branch("feature/foo")
         assert result.summary == "No changes found to review."
@@ -159,7 +171,10 @@ def test_review_branch_mcp_error():
     try:
         settings.github_repo = "owner/repo"
         settings.github_token = "fake-token"
-        with patch("backend.services.code_review_service.call_github_tool", side_effect=RuntimeError("err")):
+        with patch(
+            "backend.services.code_review_service.call_github_tool",
+            side_effect=RuntimeError("err"),
+        ):
             result = code_review_service.review_branch("feature/foo")
         assert result.error == "err"
     finally:
@@ -197,7 +212,10 @@ def test_review_diff_json_parse_error_in_braces():
 
 
 def test_review_diff_findings_without_title_skipped():
-    json_with_no_title = '{"summary": "ok", "findings": [{"severity": "low", "category": "style", "description": "x"}]}'
+    json_with_no_title = (
+        '{"summary": "ok", "findings": '
+        '[{"severity": "low", "category": "style", "description": "x"}]}'
+    )
     with patch("backend.services.code_review_service.get_llm") as mock_llm:
         mock_llm.return_value.invoke.return_value = json_with_no_title
         result = code_review_service._review_diff("owner/repo", "PR #1", "diff")
@@ -249,7 +267,9 @@ def test_post_review_not_configured():
     original = settings.github_repo
     try:
         settings.github_repo = ""
-        review = CodeReviewResult(repo="", target="PR #42", findings=[_finding(file="a.py", line=1)])
+        review = CodeReviewResult(
+            repo="", target="PR #42", findings=[_finding(file="a.py", line=1)]
+        )
         result = code_review_service.post_review_to_pull_request(42, review)
         assert result.posted is False
         assert "GITHUB_REPO" in result.error
@@ -262,7 +282,9 @@ def test_post_review_missing_token():
     try:
         settings.github_repo = "owner/repo"
         settings.github_token = ""
-        review = CodeReviewResult(repo="", target="PR #42", findings=[_finding(file="a.py", line=1)])
+        review = CodeReviewResult(
+            repo="", target="PR #42", findings=[_finding(file="a.py", line=1)]
+        )
         result = code_review_service.post_review_to_pull_request(42, review)
         assert result.posted is False
         assert "GITHUB_TOKEN" in result.error
@@ -316,8 +338,10 @@ def test_post_review_happy_path_all_anchorable():
         assert result.error is None
 
         calls = mock_mcp.call_args_list
-        assert calls[0] == call("pull_request_review_write",
-                                {"method": "create", "owner": "owner", "repo": "repo", "pullNumber": 42})
+        assert calls[0] == call(
+            "pull_request_review_write",
+            {"method": "create", "owner": "owner", "repo": "repo", "pullNumber": 42},
+        )
         assert calls[1][0][0] == "add_comment_to_pending_review"
         assert calls[2][0][0] == "add_comment_to_pending_review"
         assert calls[3][0][0] == "pull_request_review_write"

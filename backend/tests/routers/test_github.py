@@ -2,7 +2,6 @@
 
 from unittest.mock import patch
 
-import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
@@ -90,7 +89,9 @@ def test_get_pull_requests():
 
 def test_get_pull_requests_with_state():
     prs_resp = PullRequestsResponse(repo="owner/repo", pull_requests=[])
-    with patch("backend.routers.github.github_service.list_pull_requests", return_value=prs_resp) as mock_svc:
+    with patch(
+        "backend.routers.github.github_service.list_pull_requests", return_value=prs_resp
+    ) as mock_svc:
         resp = client.get("/api/github/pull-requests?state=closed")
     assert resp.status_code == 200
     mock_svc.assert_called_once_with("closed")
@@ -100,7 +101,9 @@ def test_get_pull_requests_with_state():
 
 def test_review_pull_request():
     review = CodeReviewResult(repo="owner/repo", target="PR #42", summary="ok")
-    with patch("backend.routers.github.code_review_service.review_pull_request", return_value=review):
+    with patch(
+        "backend.routers.github.code_review_service.review_pull_request", return_value=review
+    ):
         resp = client.get("/api/github/pull-requests/42/review")
     assert resp.status_code == 200
     assert resp.json()["target"] == "PR #42"
