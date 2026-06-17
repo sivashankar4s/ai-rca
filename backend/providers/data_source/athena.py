@@ -77,13 +77,11 @@ class AthenaDataSource(DataSourceStrategy):
             aws_session_token=settings.aws_session_token or None,
         )
 
-    def _build_sql(
-        self, start: datetime, end: datetime, component: str | None
-    ) -> str:
+    def _build_sql(self, start: datetime, end: datetime, component: str | None) -> str:
         start_s = start.strftime("%Y-%m-%d %H:%M:%S")
         end_s = end.strftime("%Y-%m-%d %H:%M:%S")
         component_clause = (
-            f" AND component_name = '{component.replace(chr(39), chr(39)*2)}'"
+            f" AND component_name = '{component.replace(chr(39), chr(39) * 2)}'"
             if component
             else ""
         )

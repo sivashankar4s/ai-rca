@@ -1,9 +1,3 @@
-/**
- * AI Root Cause Analyzer — US1 frontend.
- * Step 1: Fetch failed records for a time window + optional component filter.
- * Supports pagination with cross-page selection keyed by file_trace_id.
- */
-
 'use strict';
 
 // ── State ──────────────────────────────────────────────────────────────────
@@ -14,6 +8,7 @@ let pageSize      = 10;
 
 // ── DOM refs ───────────────────────────────────────────────────────────────
 const timeRangeEl       = document.getElementById('time-range');
+const dataSourceEl      = document.getElementById('data-source');
 const customDatesEl     = document.getElementById('custom-dates');
 const startDtEl         = document.getElementById('start-dt');
 const endDtEl           = document.getElementById('end-dt');
@@ -29,6 +24,43 @@ const resultsSummary    = document.getElementById('results-summary');
 const pageSizeEl        = document.getElementById('page-size');
 const tableArea         = document.getElementById('table-area');
 const paginationEl      = document.getElementById('pagination');
+const analyzePanel      = document.getElementById('analyze-panel');
+const analyzeCount      = document.getElementById('analyze-count');
+const logBackendEl      = document.getElementById('log-backend');
+const analyzeBtn        = document.getElementById('analyze-btn');
+const analyzeSpinner    = document.getElementById('analyze-spinner');
+const analyzeResult     = document.getElementById('analyze-result');
+
+// ── Providers loading ──────────────────────────────────────────────────────
+async function loadProviders() {
+  try {
+    const resp = await fetch('/api/providers');
+    if (!resp.ok) return;
+    const data = await resp.json();
+
+    // Populate Source selector
+    dataSourceEl.innerHTML = '';
+    for (const ds of data.data_sources) {
+      const opt = document.createElement('option');
+      opt.value = ds.id;
+      opt.textContent = ds.label;
+      if (ds.is_default) opt.selected = true;
+      dataSourceEl.appendChild(opt);
+    }
+
+    // Populate Log Backend selector
+    logBackendEl.innerHTML = '';
+    for (const lb of data.log_backends) {
+      const opt = document.createElement('option');
+      opt.value = lb.id;
+      opt.textContent = lb.label;
+      if (lb.is_default) opt.selected = true;
+      logBackendEl.appendChild(opt);
+    }
+  } catch {
+    // Non-fatal — selectors stay empty; fetch still works with server default
+  }
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function fmt(value) {
@@ -108,10 +140,7 @@ function renderTable() {
       </table>
     </div>`;
 
-  // select-all checkbox for this page
   document.getElementById('select-all').addEventListener('change', onSelectAll);
-
-  // individual row checkboxes
   tableArea.querySelectorAll('.row-check').forEach(cb => {
     cb.addEventListener('change', onRowCheck);
   });
@@ -151,9 +180,13 @@ function updateSelectionBar() {
   const count = selectedIds.size;
   if (count === 0) {
     selectionBar.classList.remove('visible');
+    analyzePanel.style.display = 'none';
   } else {
     selectionBar.classList.add('visible');
     selectionCount.textContent = `${count} record${count !== 1 ? 's' : ''} selected`;
+    analyzeCount.textContent = count;
+    analyzePanel.style.display = 'block';
+    analyzeResult.style.display = 'none';
   }
 }
 
@@ -183,7 +216,6 @@ function onRowCheck(e) {
   }
   updateSelectionBar();
 
-  // Update select-all state
   const selectAll = document.getElementById('select-all');
   if (selectAll) {
     const records = pageRecords();
@@ -220,8 +252,9 @@ async function fetchFailures() {
 
   const range = timeRangeEl.value;
   const component = componentEl.value.trim() || null;
+  const dataSource = dataSourceEl.value || null;
 
-  const body = { time_range: range, component };
+  const body = { time_range: range, component, data_source: dataSource };
 
   if (range === 'custom') {
     const start = startDtEl.value;
@@ -250,6 +283,7 @@ async function fetchFailures() {
     const data = await resp.json();
     allRecords  = data.records ?? [];
     currentPage = 1;
+    selectedIds.clear();
 
     updateResultsHeader();
     renderTable();
@@ -264,12 +298,53 @@ async function fetchFailures() {
   }
 }
 
+// ── Analyze ────────────────────────────────────────────────────────────────
+async function analyzeSelected() {
+  analyzeBtn.disabled = true;
+  analyzeSpinner.style.display = 'inline-block';
+  analyzeResult.style.display = 'none';
+
+  const selected = allRecords.filter(r => selectedIds.has(r.file_trace_id));
+  const logBackend = logBackendEl.value || null;
+
+  try {
+    const resp = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        time_range: timeRangeEl.value,
+        records: selected,
+        log_backend: logBackend,
+      }),
+    });
+
+    if (!resp.ok) {
+      const detail = await resp.json().catch(() => ({}));
+      throw new Error(detail.detail ?? `Server error ${resp.status}`);
+    }
+
+    const data = await resp.json();
+    analyzeResult.innerHTML = `
+      <strong>Analysis queued</strong> — ${data.record_count} record(s) via
+      <em>${data.log_backend_used}</em>.
+    `;
+    analyzeResult.style.display = 'block';
+  } catch (err) {
+    analyzeResult.innerHTML = `<span style="color:var(--danger)">Analyze failed: ${err.message}</span>`;
+    analyzeResult.style.display = 'block';
+  } finally {
+    analyzeBtn.disabled = false;
+    analyzeSpinner.style.display = 'none';
+  }
+}
+
 // ── Wire up events ─────────────────────────────────────────────────────────
 timeRangeEl.addEventListener('change', () => {
   customDatesEl.classList.toggle('visible', timeRangeEl.value === 'custom');
 });
 
 fetchBtn.addEventListener('click', fetchFailures);
+analyzeBtn.addEventListener('click', analyzeSelected);
 
 pageSizeEl.addEventListener('change', () => {
   pageSize = Number(pageSizeEl.value);
@@ -724,3 +799,5 @@ function showConfig() {
 
 navAnalysis.addEventListener('click', showAnalysis);
 navConfig.addEventListener('click', showConfig);
+// ── Init ───────────────────────────────────────────────────────────────────
+loadProviders();

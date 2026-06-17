@@ -56,15 +56,7 @@ header {
 .nav-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 header h1 { font-size: 18px; font-weight: 600; }
-header .badge {
-  background: var(--accent);
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: .06em;
-  padding: 2px 7px;
-  text-transform: uppercase;
-}
+header .tagline { color: var(--muted); font-size: 12px; }
 
 main { max-width: 1400px; margin: 0 auto; padding: 24px; }
 
@@ -380,6 +372,8 @@ a.github-pr-title:hover { color: var(--accent); text-decoration: underline; }
 /* ── Code Review Panel ────────────────────────────────────────────────── */
 
 .code-review-section {
+/* Analyze panel */
+.analyze-panel {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -581,4 +575,26 @@ a.github-pr-title:hover { color: var(--accent); text-decoration: underline; }
   background: rgba(240,71,71,.1);
   border: 1px solid rgba(240,71,71,.3);
   color: var(--danger);
+.analyze-header {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 14px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.analyze-controls {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.analyze-result {
+  background: rgba(88,101,242,.1);
+  border: 1px solid rgba(88,101,242,.3);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 13px;
+  margin-top: 14px;
+  padding: 12px 16px;
 }

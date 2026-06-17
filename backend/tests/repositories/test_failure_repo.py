@@ -85,24 +85,32 @@ class TestUpsertFailureRecords:
 
         upsert_failure_records(db_session, project.id, [schema])
         # Count rows before second upsert
-        count_after_first = db_session.execute(
-            select(FailureRecordORM).where(
-                FailureRecordORM.project_id == project.id,
-                FailureRecordORM.file_trace_id == "trace-dedup",
+        count_after_first = (
+            db_session.execute(
+                select(FailureRecordORM).where(
+                    FailureRecordORM.project_id == project.id,
+                    FailureRecordORM.file_trace_id == "trace-dedup",
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         assert len(count_after_first) == 1
 
         # Upsert again with updated data — must update, not insert
         schema_updated = _make_schema("trace-dedup", error_code="E002")
         upsert_failure_records(db_session, project.id, [schema_updated])
 
-        count_after_second = db_session.execute(
-            select(FailureRecordORM).where(
-                FailureRecordORM.project_id == project.id,
-                FailureRecordORM.file_trace_id == "trace-dedup",
+        count_after_second = (
+            db_session.execute(
+                select(FailureRecordORM).where(
+                    FailureRecordORM.project_id == project.id,
+                    FailureRecordORM.file_trace_id == "trace-dedup",
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         assert len(count_after_second) == 1  # still one row — no duplicate
 
     def test_upsert_updates_existing_record_on_conflict(self, db_session: Session) -> None:

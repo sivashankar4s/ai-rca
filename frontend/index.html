@@ -15,6 +15,7 @@
     <button class="nav-tab active" id="nav-analysis" type="button">Analysis</button>
     <button class="nav-tab" id="nav-config" type="button">Config</button>
   </nav>
+  <span class="tagline">Powered by pluggable data, log &amp; AI providers</span>
 </header>
 
 <main>
@@ -32,6 +33,13 @@
         <option value="1d" selected>Last 1 Day</option>
         <option value="1w">Last 1 Week</option>
         <option value="custom">Custom Range</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="data-source">Source</label>
+      <select id="data-source" aria-label="Data source">
+        <option value="">Loading…</option>
       </select>
     </div>
 
@@ -191,6 +199,24 @@
       <div class="config-feedback hidden" id="config-github-mcp-feedback"></div>
     </div>
 
+  <!-- Analyze panel (shown after records are loaded and at least one selected) -->
+  <section class="analyze-panel" id="analyze-panel" style="display:none" aria-label="Analyze selected failures">
+    <div class="analyze-header">
+      <span>Analyze <span id="analyze-count">0</span> selected record(s)</span>
+    </div>
+    <div class="analyze-controls">
+      <div class="field">
+        <label for="log-backend">Log Backend</label>
+        <select id="log-backend" aria-label="Log backend">
+          <option value="">Loading…</option>
+        </select>
+      </div>
+      <button class="btn" id="analyze-btn" type="button">
+        <span id="analyze-spinner" class="spinner" style="display:none"></span>
+        Analyze
+      </button>
+    </div>
+    <div id="analyze-result" class="analyze-result" style="display:none"></div>
   </section>
 
 </main>

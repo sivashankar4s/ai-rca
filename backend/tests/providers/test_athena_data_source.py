@@ -200,9 +200,7 @@ class TestAthenaDataSource:
 
         assert records[0].raw_payload is not None
 
-    def _make_single_row_result(
-        self, event_created_ts: str = "", event_data: str = ""
-    ) -> dict:
+    def _make_single_row_result(self, event_created_ts: str = "", event_data: str = "") -> dict:
         return {
             "ResultSet": {
                 "Rows": [
