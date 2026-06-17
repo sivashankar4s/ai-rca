@@ -1,0 +1,46 @@
+name: Update Feature Wiki
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'specs/**/tasks.md'
+      - 'specs/**/spec.md'
+      - 'specs/**/plan.md'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-wiki:
+    name: Publish Feature Status to Wiki
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate wiki page
+        run: python3 scripts/feature_status.py --wiki all > /tmp/Feature-Status.md
+
+      - name: Preview (job summary)
+        run: cat /tmp/Feature-Status.md >> $GITHUB_STEP_SUMMARY
+
+      - name: Clone wiki repo
+        run: |
+          git clone \
+            "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git" \
+            /tmp/wiki
+        continue-on-error: false
+
+      - name: Commit and push to wiki
+        run: |
+          cp /tmp/Feature-Status.md /tmp/wiki/Feature-Status.md
+          cd /tmp/wiki
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add Feature-Status.md
+          git diff --cached --quiet && echo "No changes" || \
+            git commit -m "chore: update feature status $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git push
