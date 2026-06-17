@@ -214,6 +214,7 @@ class ConfigSaveResult(BaseModel):
     message: str
     updated_at: datetime | None = None
 
+
 class ProviderOption(BaseModel):
     """One selectable provider returned by GET /api/providers."""
 
@@ -235,6 +236,12 @@ class AnalyzeRequest(BaseModel):
     records: list[FailureRecord]
     time_range: TimeRange
     log_backend: Literal["cloudwatch", "grafana_loki"] | None = None
+
+
+class AnalyzeResponse(BaseModel):
+    """Response body for POST /api/analyze."""
+
+    log_backend_used: str
     record_count: int
 
 
