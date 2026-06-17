@@ -7,7 +7,7 @@ a Pydantic model (Constitution Principle I). No bare dicts in API handlers.
 from datetime import datetime
 from enum import StrEnum
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 
 class TimeRange(StrEnum):
@@ -65,3 +65,150 @@ class FailuresResponse(BaseModel):
     total: int
     time_range: TimeRange
     records: list[FailureRecord]
+
+
+# ── GitHub / Source Code Intelligence ─────────────────────────────────────────
+
+
+class RepoInfo(BaseModel):
+    configured: bool
+    repo: str | None = None
+    owner: str | None = None
+    name: str | None = None
+    default_branch: str | None = None
+    description: str | None = None
+    url: str | None = None
+    error: str | None = None
+
+
+class BranchInfo(BaseModel):
+    name: str
+    sha: str | None = None
+    protected: bool = False
+
+
+class BranchesResponse(BaseModel):
+    repo: str
+    branches: list[BranchInfo] = []
+    error: str | None = None
+
+
+class PullRequestInfo(BaseModel):
+    number: int
+    title: str
+    state: str
+    author: str | None = None
+    url: str | None = None
+    updated_at: str | None = None
+    branch: str | None = None
+
+
+class PullRequestsResponse(BaseModel):
+    repo: str
+    pull_requests: list[PullRequestInfo] = []
+    error: str | None = None
+
+
+class CodeReviewFinding(BaseModel):
+    severity: str
+    category: str
+    file: str | None = None
+    line: int | None = None
+    title: str
+    description: str
+    recommendation: str | None = None
+
+
+class CodeReviewResult(BaseModel):
+    repo: str
+    target: str
+    summary: str = ""
+    findings: list[CodeReviewFinding] = []
+    error: str | None = None
+
+
+class PostedReviewResult(BaseModel):
+    """Response DTO for POST .../review/comments (spec 003-inline-pr-comments)."""
+
+    repo: str = ""
+    target: str = ""
+    posted: bool = False
+    review_url: str | None = None
+    inline_comment_count: int = 0
+    summary_only_count: int = 0
+    verdict: str = "COMMENT"
+    error: str | None = None
+
+
+# ── App Configuration ──────────────────────────────────────────────────────────
+
+MASK_SENTINEL = "••••••••"
+
+
+class AwsConfigStatus(BaseModel):
+    configured: bool
+    access_key_id: str | None = None
+    secret_access_key: str | None = None
+    region: str | None = None
+
+
+class GithubMcpConfigStatus(BaseModel):
+    configured: bool
+    repo: str | None = None
+    token: str | None = None
+    default_branch: str | None = None
+
+
+class AppConfigRead(BaseModel):
+    aws: AwsConfigStatus
+    github_mcp: GithubMcpConfigStatus
+
+
+class AwsConfigUpdate(BaseModel):
+    access_key_id: str
+    secret_access_key: str
+    region: str | None = None
+
+    @field_validator("access_key_id")
+    @classmethod
+    def _access_key_id_nonempty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("access_key_id must not be empty")
+        return v.strip()
+
+    @field_validator("secret_access_key")
+    @classmethod
+    def _secret_nonempty_unless_sentinel(cls, v: str) -> str:
+        if v != MASK_SENTINEL and not v.strip():
+            raise ValueError("secret_access_key must not be empty")
+        return v
+
+
+class GithubMcpConfigUpdate(BaseModel):
+    repo: str
+    token: str
+    default_branch: str | None = None
+
+    @field_validator("repo")
+    @classmethod
+    def _repo_format(cls, v: str) -> str:
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError("repo must not be empty")
+        parts = stripped.split("/")
+        if len(parts) != 2 or not parts[0] or not parts[1]:
+            raise ValueError("repo must be in owner/repo format")
+        return stripped
+
+    @field_validator("token")
+    @classmethod
+    def _token_nonempty_unless_sentinel(cls, v: str) -> str:
+        if v != MASK_SENTINEL and not v.strip():
+            raise ValueError("token must not be empty")
+        return v
+
+
+class ConfigSaveResult(BaseModel):
+    success: bool
+    message: str
+    updated_at: datetime | None = None

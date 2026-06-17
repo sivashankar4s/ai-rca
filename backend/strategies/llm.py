@@ -1,12 +1,11 @@
 """LLMStrategy ABC — Constitution Principle III."""
 
 from abc import ABC, abstractmethod
-from typing import Any
 
 
 class LLMStrategy(ABC):
-    """Abstract interface for LLM providers used in the RCA pipeline."""
+    """Abstract interface for LLM providers used in the code-review pipeline."""
 
     @abstractmethod
-    def chat(self, messages: list[dict[str, Any]], **kwargs: Any) -> str:
-        """Send a chat-completion request and return the assistant text response."""
+    def invoke(self, prompt: str, max_tokens: int = 4096) -> str:
+        """Run a text prompt and return the model's text response."""
