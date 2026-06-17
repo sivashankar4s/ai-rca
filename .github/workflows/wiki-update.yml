@@ -7,6 +7,8 @@ on:
       - 'specs/**/tasks.md'
       - 'specs/**/spec.md'
       - 'specs/**/plan.md'
+      - 'scripts/feature_status.py'
+      - '.github/workflows/wiki-update.yml'
   workflow_dispatch:
 
 permissions:
