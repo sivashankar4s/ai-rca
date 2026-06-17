@@ -1,0 +1,62 @@
+name: Sync GitHub Project
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'specs/**/tasks.md'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (print what would change, make no API calls)'
+        type: boolean
+        default: false
+      feature:
+        description: 'Sync one feature only (e.g. 004). Leave blank for all.'
+        required: false
+        default: ''
+
+# PROJECT_TOKEN: PAT with repo + project scopes — needed for Project v2 creation.
+# If not set, milestones and issues are still synced; only project card linking is skipped.
+# Create at: Settings → Developer settings → Personal access tokens → Fine-grained tokens
+
+permissions:
+  issues: write
+  contents: read
+  repository-projects: write
+
+jobs:
+  sync:
+    name: Sync Issues & Project
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.PROJECT_TOKEN || secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build sync command
+        id: cmd
+        run: |
+          ARGS=""
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+          if [ -n "${{ inputs.feature }}" ]; then
+            ARGS="$ARGS --feature ${{ inputs.feature }}"
+          fi
+          echo "args=$ARGS" >> $GITHUB_OUTPUT
+
+      - name: Sync to GitHub
+        run: python3 scripts/sync_github_project.py ${{ steps.cmd.outputs.args }}
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Project Sync" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger:** \`${{ github.event_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Dry run:** \`${{ inputs.dry_run || 'false' }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Feature filter:** \`${{ inputs.feature || 'all' }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Project:** [${PROJECT_TITLE}](https://github.com/${{ github.repository_owner }}?tab=projects)" >> $GITHUB_STEP_SUMMARY
+        env:
+          PROJECT_TITLE: AI RCA Roadmap
