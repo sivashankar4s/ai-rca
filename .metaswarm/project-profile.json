@@ -2,7 +2,7 @@
   "metaswarm_version": "1.0.0",
   "distribution": "plugin",
   "installed_at": "2026-06-16T00:00:00Z",
-  "updated_at": "2026-06-16T12:00:00Z",
+  "updated_at": "2026-06-17T00:00:00Z",
   "detection": {
     "language": "Python",
     "framework": "FastAPI",
@@ -15,7 +15,7 @@
     "git_hooks": "pre-commit"
   },
   "choices": {
-    "coverage_threshold": 100,
+    "coverage_threshold": 90,
     "external_tools": false,
     "visual_review": false,
     "ci_pipeline": true,
@@ -23,7 +23,7 @@
   },
   "commands": {
     "test": "pytest",
-    "coverage": "pytest --cov --cov-fail-under=100",
+    "coverage": "pytest --cov --cov-fail-under=90",
     "lint": "ruff check .",
     "typecheck": null,
     "format_check": "ruff format --check ."

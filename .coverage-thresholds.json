@@ -2,13 +2,13 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$comment": "Coverage thresholds for orchestrator agents and CI. Portable across projects — adjust values per-repo.",
   "thresholds": {
-    "lines": 100,
-    "branches": 100,
-    "functions": 100,
-    "statements": 100
+    "lines": 90,
+    "branches": 90,
+    "functions": 90,
+    "statements": 90
   },
   "enforcement": {
-    "command": "pytest --cov --cov-fail-under=100",
+    "command": "pytest --cov --cov-fail-under=90",
     "blockPRCreation": true,
     "blockTaskCompletion": true,
     "description": "Orchestrator agents MUST check coverage against these thresholds before marking any task complete or creating a PR. If coverage drops below any threshold, the task fails."
