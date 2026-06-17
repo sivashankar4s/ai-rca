@@ -5,8 +5,9 @@ liveness ``/api/health`` probe. Domain routers and static frontend serving are w
 in by their respective work units.
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.routers.analysis import router as analysis_router
@@ -30,6 +31,12 @@ app.add_middleware(
 app.include_router(analysis_router)
 app.include_router(config_router)
 app.include_router(github_router)
+
+
+@app.exception_handler(ValueError)
+async def _value_error_handler(_request: Request, exc: ValueError) -> JSONResponse:
+    """Translate registry ValueError (unknown provider) to HTTP 400 (FR-008)."""
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 
 @app.get("/api/health")

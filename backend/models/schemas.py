@@ -6,6 +6,7 @@ a Pydantic model (Constitution Principle I). No bare dicts in API handlers.
 
 from datetime import datetime
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, field_validator, model_validator
 
@@ -50,7 +51,7 @@ class FailuresRequest(BaseModel):
     component: str | None = None
     start: datetime | None = None
     end: datetime | None = None
-    data_source: str | None = None
+    data_source: Literal["athena", "postgres"] | None = None
 
     @model_validator(mode="after")
     def _require_dates_for_custom(self) -> "FailuresRequest":
@@ -212,3 +213,28 @@ class ConfigSaveResult(BaseModel):
     success: bool
     message: str
     updated_at: datetime | None = None
+
+class ProviderOption(BaseModel):
+    """One selectable provider returned by GET /api/providers."""
+
+    id: str
+    label: str
+    is_default: bool
+
+
+class ProvidersResponse(BaseModel):
+    """Response body for GET /api/providers (FR-005)."""
+
+    data_sources: list[ProviderOption]
+    log_backends: list[ProviderOption]
+
+
+class AnalyzeRequest(BaseModel):
+    """Request body for POST /api/analyze (FR-002)."""
+
+    records: list[FailureRecord]
+    time_range: TimeRange
+    log_backend: Literal["cloudwatch", "grafana_loki"] | None = None
+    record_count: int
+
+
