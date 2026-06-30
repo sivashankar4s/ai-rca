@@ -11,6 +11,8 @@ def test_defaults_boot_without_env() -> None:
     assert s.log_analysis_provider == "cloudwatch"
     assert s.llm_provider == "navify"
     assert "postgresql" in s.database_url
+    assert s.cloudwatch_log_groups == []
+    assert s.cloudwatch_query_timeout == 60
 
 
 def test_module_level_singleton_exists() -> None:
