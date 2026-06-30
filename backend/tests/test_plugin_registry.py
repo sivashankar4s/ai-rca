@@ -4,14 +4,12 @@ from unittest.mock import patch
 
 import pytest
 
-from backend.plugin_registry import get_data_source, get_llm
+from backend.plugin_registry import describe_providers, get_data_source, get_llm, get_log_backend
 from backend.providers.data_source.athena import AthenaDataSource
-from backend.providers.data_source.local_file import LocalFileDataSource
-from backend.providers.llm.navify import NavifyLLMProvider
-from backend.plugin_registry import describe_providers, get_data_source, get_log_backend
-from backend.providers.data_source.athena import AthenaDataSource
+from backend.providers.data_source.cloudwatch import CloudWatchDataSource
 from backend.providers.data_source.local_file import LocalFileDataSource
 from backend.providers.data_source.postgres import PostgresDataSource
+from backend.providers.llm.navify import NavifyLLMProvider
 from backend.strategies.data_source import DataSourceStrategy
 
 
@@ -36,6 +34,11 @@ class TestGetDataSource:
     def test_postgres_returns_postgres_data_source(self) -> None:
         ds = get_data_source("postgres")
         assert isinstance(ds, PostgresDataSource)
+        assert isinstance(ds, DataSourceStrategy)
+
+    def test_cloudwatch_returns_cloudwatch_data_source(self) -> None:
+        ds = get_data_source("cloudwatch")
+        assert isinstance(ds, CloudWatchDataSource)
         assert isinstance(ds, DataSourceStrategy)
 
     def test_unknown_provider_raises_value_error(self) -> None:
@@ -104,7 +107,7 @@ class TestGetLogBackend:
 class TestDescribeProviders:
     def test_returns_providers_response_shape(self) -> None:
         result = describe_providers()
-        assert len(result.data_sources) == 2
+        assert len(result.data_sources) == 3
         assert len(result.log_backends) == 2
 
     def test_exactly_one_data_source_default(self) -> None:
@@ -145,6 +148,6 @@ class TestDescribeProviders:
     def test_provider_ids_and_labels_present(self) -> None:
         result = describe_providers()
         ids = {ds.id for ds in result.data_sources}
-        assert ids == {"athena", "postgres"}
+        assert ids == {"athena", "postgres", "cloudwatch"}
         lb_ids = {lb.id for lb in result.log_backends}
         assert lb_ids == {"cloudwatch", "grafana_loki"}

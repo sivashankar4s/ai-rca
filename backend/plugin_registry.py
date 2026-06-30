@@ -3,6 +3,7 @@
 from backend.config import settings
 from backend.models.schemas import ProviderOption, ProvidersResponse
 from backend.providers.data_source.athena import AthenaDataSource
+from backend.providers.data_source.cloudwatch import CloudWatchDataSource
 from backend.providers.data_source.local_file import LocalFileDataSource
 from backend.providers.data_source.postgres import PostgresDataSource
 from backend.strategies.data_source import DataSourceStrategy
@@ -12,6 +13,7 @@ from backend.strategies.log_analysis import LogAnalysisStrategy
 _DATA_SOURCE_CATALOGUE: list[tuple[str, str]] = [
     ("athena", "Amazon Athena"),
     ("postgres", "Stored history (Postgres)"),
+    ("cloudwatch", "CloudWatch (Lambda logs)"),
 ]
 
 _LOG_BACKEND_CATALOGUE: list[tuple[str, str]] = [
@@ -30,6 +32,8 @@ def get_data_source(provider: str | None = None) -> DataSourceStrategy:
         return AthenaDataSource()
     if provider == "postgres":
         return PostgresDataSource()
+    if provider == "cloudwatch":
+        return CloudWatchDataSource()
     raise ValueError(f"Unknown data_source_provider: {provider!r}")
 
 

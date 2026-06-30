@@ -52,7 +52,7 @@ class FailuresRequest(BaseModel):
     component: str | None = None
     start: datetime | None = None
     end: datetime | None = None
-    data_source: Literal["athena", "postgres"] | None = None
+    data_source: Literal["athena", "postgres", "cloudwatch"] | None = None
 
     @model_validator(mode="after")
     def _require_dates_for_custom(self) -> "FailuresRequest":
