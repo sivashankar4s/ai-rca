@@ -53,6 +53,7 @@ def upsert_failure_records(
             "device_id": schema.device_id,
             "error_code": schema.error_code,
             "stage": schema.stage,
+            "message": schema.message,
             "event_created_ts": schema.event_created_ts,
             "event_inserted_ts": schema.event_inserted_ts,
             "raw_payload": schema.raw_payload,

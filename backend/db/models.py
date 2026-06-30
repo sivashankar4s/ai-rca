@@ -80,6 +80,7 @@ class FailureRecord(Base):
     device_id: Mapped[str | None] = mapped_column(String, nullable=True)
     error_code: Mapped[str | None] = mapped_column(String, nullable=True)
     stage: Mapped[str | None] = mapped_column(String, nullable=True)
+    message: Mapped[str | None] = mapped_column(String, nullable=True)
     event_created_ts: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

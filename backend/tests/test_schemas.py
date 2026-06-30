@@ -84,6 +84,12 @@ class TestFailureRecord:
         assert rec.component_name == "dp-lz-s3-event-processor"
         assert rec.error_code == "S3_PUT_FAILED"
 
+    def test_message_defaults_to_none(self) -> None:
+        assert FailureRecord(file_trace_id="t").message is None
+
+    def test_message_can_be_set(self) -> None:
+        assert FailureRecord(message="boom").message == "boom"
+
 
 class TestFailuresResponse:
     def test_construction(self) -> None:

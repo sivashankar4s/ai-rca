@@ -37,6 +37,7 @@ class FailureRecord(BaseModel):
     device_id: str | None = None
     error_code: str | None = None
     stage: str | None = None
+    message: str | None = None
     status: str | None = None
     event_created_ts: datetime | None = None
     event_inserted_ts: datetime | None = None
