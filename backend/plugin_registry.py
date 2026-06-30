@@ -1,11 +1,14 @@
 """Plugin registry — resolves provider names to concrete strategy instances."""
 
+from sqlalchemy.orm import Session
+
 from backend.config import settings
 from backend.models.schemas import ProviderOption, ProvidersResponse
 from backend.providers.data_source.athena import AthenaDataSource
 from backend.providers.data_source.cloudwatch import CloudWatchDataSource
 from backend.providers.data_source.local_file import LocalFileDataSource
 from backend.providers.data_source.postgres import PostgresDataSource
+from backend.repositories import config_repo
 from backend.strategies.data_source import DataSourceStrategy
 from backend.strategies.llm import LLMStrategy
 from backend.strategies.log_analysis import LogAnalysisStrategy
@@ -22,8 +25,27 @@ _LOG_BACKEND_CATALOGUE: list[tuple[str, str]] = [
 ]
 
 
-def get_data_source(provider: str | None = None) -> DataSourceStrategy:
-    """Return a DataSourceStrategy for the given provider name (defaults to settings)."""
+def _build_cloudwatch_source(db: Session | None) -> CloudWatchDataSource:
+    """Build CloudWatchDataSource from the DB config (app_config), env as fallback."""
+    log_groups: list[str] | None = None
+    query_timeout: int | None = None
+    if db is not None:
+        row = config_repo.get_app_config(db)
+        cfg = (row.cloudwatch_config or {}) if row else None
+        if cfg and cfg.get("log_groups"):
+            log_groups = cfg["log_groups"]
+            query_timeout = cfg.get("query_timeout")
+    return CloudWatchDataSource(log_groups=log_groups, query_timeout=query_timeout)
+
+
+def get_data_source(
+    provider: str | None = None, db: Session | None = None
+) -> DataSourceStrategy:
+    """Return a DataSourceStrategy for the given provider name (defaults to settings).
+
+    ``db`` is used only by the CloudWatch source to read log groups from the
+    config page (app_config), falling back to env settings when absent.
+    """
     if provider is None:
         provider = settings.data_source_provider
     if provider == "local_file":
@@ -33,7 +55,7 @@ def get_data_source(provider: str | None = None) -> DataSourceStrategy:
     if provider == "postgres":
         return PostgresDataSource()
     if provider == "cloudwatch":
-        return CloudWatchDataSource()
+        return _build_cloudwatch_source(db)
     raise ValueError(f"Unknown data_source_provider: {provider!r}")
 
 

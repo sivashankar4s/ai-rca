@@ -10,6 +10,8 @@ from ..models.schemas import (
     AppConfigRead,
     AwsConfigStatus,
     AwsConfigUpdate,
+    CloudWatchConfigStatus,
+    CloudWatchConfigUpdate,
     ConfigSaveResult,
     GithubMcpConfigStatus,
     GithubMcpConfigUpdate,
@@ -68,15 +70,41 @@ def _build_github_mcp_status(row_cfg: dict | None, *, db_row_exists: bool) -> Gi
     return GithubMcpConfigStatus(configured=False)
 
 
+def _build_cloudwatch_status(
+    row_cfg: dict | None, *, db_row_exists: bool
+) -> CloudWatchConfigStatus:
+    """Build CloudWatchConfigStatus: use DB values when a row exists, env-vars only as fallback."""
+    if db_row_exists:
+        cfg = row_cfg or {}
+        groups: list[str] = cfg.get("log_groups") or []
+        timeout: int | None = cfg.get("query_timeout")
+        return CloudWatchConfigStatus(
+            configured=bool(groups), log_groups=groups, query_timeout=timeout
+        )
+
+    # No DB row — fall back to environment variables
+    env_groups = settings.cloudwatch_log_groups
+    if env_groups:
+        logger.warning("CloudWatch config falling back to environment variables")
+        return CloudWatchConfigStatus(
+            configured=True,
+            log_groups=env_groups,
+            query_timeout=settings.cloudwatch_query_timeout,
+        )
+    return CloudWatchConfigStatus(configured=False)
+
+
 @router.get("", response_model=AppConfigRead)
 async def get_config(db: Session = Depends(get_db)) -> AppConfigRead:
     row = config_repo.get_app_config(db)
     db_row_exists = row is not None
     aws_cfg = row.aws_config if row else None
     github_cfg = row.github_mcp_config if row else None
+    cloudwatch_cfg = row.cloudwatch_config if row else None
     return AppConfigRead(
         aws=_build_aws_status(aws_cfg, db_row_exists=db_row_exists),
         github_mcp=_build_github_mcp_status(github_cfg, db_row_exists=db_row_exists),
+        cloudwatch=_build_cloudwatch_status(cloudwatch_cfg, db_row_exists=db_row_exists),
     )
 
 
@@ -102,5 +130,18 @@ async def patch_github_mcp_config(
     return ConfigSaveResult(
         success=True,
         message="GitHub MCP configuration saved.",
+        updated_at=row.updated_at,
+    )
+
+
+@router.patch("/cloudwatch", response_model=ConfigSaveResult)
+async def patch_cloudwatch_config(
+    data: CloudWatchConfigUpdate, db: Session = Depends(get_db)
+) -> ConfigSaveResult:
+    row = config_repo.upsert_cloudwatch_config(db, data)
+    db.commit()
+    return ConfigSaveResult(
+        success=True,
+        message="CloudWatch configuration saved.",
         updated_at=row.updated_at,
     )

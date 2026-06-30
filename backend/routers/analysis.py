@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from backend.config import settings
@@ -52,8 +52,12 @@ async def post_failures(
         start = now - _WINDOW[body.time_range]
         end = now
 
-    ds = get_data_source(body.data_source)
-    records = ds.fetch_records(start, end, body.component)
+    ds = get_data_source(body.data_source, db=db)
+    try:
+        records = ds.fetch_records(start, end, body.component)
+    except RuntimeError as exc:
+        # Provider config / backend failure (e.g. CloudWatch not configured) → clean 400.
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     # Persist ALL fetched records under the default project before filtering.
     project = get_or_create_default_project(db)

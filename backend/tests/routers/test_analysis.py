@@ -3,7 +3,7 @@
 import uuid
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -124,7 +124,7 @@ class TestPostFailures:
         ) as mock_factory:
             resp = _CLIENT.post("/api/failures", json={"time_range": "1d", "data_source": "athena"})
         assert resp.status_code == 200
-        mock_factory.assert_called_once_with("athena")
+        mock_factory.assert_called_once_with("athena", db=ANY)
 
     def test_data_source_postgres_forwarded_to_factory(self) -> None:
         """data_source='postgres' is forwarded to get_data_source (T004)."""
@@ -136,7 +136,7 @@ class TestPostFailures:
                 "/api/failures", json={"time_range": "1d", "data_source": "postgres"}
             )
         assert resp.status_code == 200
-        mock_factory.assert_called_once_with("postgres")
+        mock_factory.assert_called_once_with("postgres", db=ANY)
 
     def test_no_data_source_passes_none_to_factory(self) -> None:
         """When data_source is omitted, get_data_source(None) is called."""
@@ -146,7 +146,7 @@ class TestPostFailures:
         ) as mock_factory:
             resp = _CLIENT.post("/api/failures", json={"time_range": "1d"})
         assert resp.status_code == 200
-        mock_factory.assert_called_once_with(None)
+        mock_factory.assert_called_once_with(None, db=ANY)
 
     # T005 — rejection of invalid / unavailable selections
     def test_unknown_data_source_literal_returns_422(self) -> None:

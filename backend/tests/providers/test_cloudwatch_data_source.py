@@ -255,7 +255,7 @@ class TestCloudWatchDataSource:
     def test_empty_log_groups_raises_runtime_error(self, monkeypatch) -> None:
         ds, _client = _make_ds()
         monkeypatch.setattr(settings, "cloudwatch_log_groups", [])
-        with pytest.raises(RuntimeError, match="cloudwatch_log_groups"):
+        with pytest.raises(RuntimeError, match="log groups to be configured"):
             ds.fetch_records(_START, _END)
 
     def test_row_without_request_id_is_skipped(self) -> None:

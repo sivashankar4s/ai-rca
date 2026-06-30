@@ -125,3 +125,24 @@ class TestUpsertGithubMcpConfig:
         row = config_repo.get_app_config(db_session)
         assert row is not None
         assert row.github_mcp_config["default_branch"] == "develop"
+
+
+class TestUpsertCloudwatchConfig:
+    def test_stores_log_groups(self, db_session: Session) -> None:
+        from backend.models.schemas import CloudWatchConfigUpdate
+
+        data = CloudWatchConfigUpdate(log_groups=["/aws/lambda/a", "/aws/lambda/b"])
+        config_repo.upsert_cloudwatch_config(db_session, data)
+        row = config_repo.get_app_config(db_session)
+        assert row is not None
+        assert row.cloudwatch_config["log_groups"] == ["/aws/lambda/a", "/aws/lambda/b"]
+        assert "query_timeout" not in row.cloudwatch_config
+
+    def test_stores_query_timeout(self, db_session: Session) -> None:
+        from backend.models.schemas import CloudWatchConfigUpdate
+
+        data = CloudWatchConfigUpdate(log_groups=["/aws/lambda/a"], query_timeout=120)
+        config_repo.upsert_cloudwatch_config(db_session, data)
+        row = config_repo.get_app_config(db_session)
+        assert row is not None
+        assert row.cloudwatch_config["query_timeout"] == 120

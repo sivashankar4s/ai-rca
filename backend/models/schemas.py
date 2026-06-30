@@ -162,9 +162,16 @@ class GithubMcpConfigStatus(BaseModel):
     default_branch: str | None = None
 
 
+class CloudWatchConfigStatus(BaseModel):
+    configured: bool
+    log_groups: list[str] = []
+    query_timeout: int | None = None
+
+
 class AppConfigRead(BaseModel):
     aws: AwsConfigStatus
     github_mcp: GithubMcpConfigStatus
+    cloudwatch: CloudWatchConfigStatus
 
 
 class AwsConfigUpdate(BaseModel):
@@ -208,6 +215,26 @@ class GithubMcpConfigUpdate(BaseModel):
     def _token_nonempty_unless_sentinel(cls, v: str) -> str:
         if v != MASK_SENTINEL and not v.strip():
             raise ValueError("token must not be empty")
+        return v
+
+
+class CloudWatchConfigUpdate(BaseModel):
+    log_groups: list[str]
+    query_timeout: int | None = None
+
+    @field_validator("log_groups")
+    @classmethod
+    def _log_groups_nonempty(cls, v: list[str]) -> list[str]:
+        cleaned = [g.strip() for g in v if g.strip()]
+        if not cleaned:
+            raise ValueError("at least one log group is required")
+        return cleaned
+
+    @field_validator("query_timeout")
+    @classmethod
+    def _timeout_positive(cls, v: int | None) -> int | None:
+        if v is not None and v <= 0:
+            raise ValueError("query_timeout must be a positive number of seconds")
         return v
 
 

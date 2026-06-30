@@ -5,7 +5,12 @@ import logging
 from sqlalchemy.orm import Session
 
 from backend.db.models import AppConfig
-from backend.models.schemas import MASK_SENTINEL, AwsConfigUpdate, GithubMcpConfigUpdate
+from backend.models.schemas import (
+    MASK_SENTINEL,
+    AwsConfigUpdate,
+    CloudWatchConfigUpdate,
+    GithubMcpConfigUpdate,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -71,3 +76,12 @@ def upsert_github_mcp_config(db: Session, data: GithubMcpConfigUpdate) -> AppCon
         github_cfg["default_branch"] = data.default_branch
 
     return _upsert_app_config(db, github_mcp_config=github_cfg)
+
+
+def upsert_cloudwatch_config(db: Session, data: CloudWatchConfigUpdate) -> AppConfig:
+    """Persist CloudWatch log groups + query timeout (no secrets to mask)."""
+    cloudwatch_cfg: dict = {"log_groups": data.log_groups}
+    if data.query_timeout is not None:
+        cloudwatch_cfg["query_timeout"] = data.query_timeout
+
+    return _upsert_app_config(db, cloudwatch_config=cloudwatch_cfg)

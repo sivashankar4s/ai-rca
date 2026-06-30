@@ -194,7 +194,15 @@ def _rows_to_records(results: list) -> list[FailureRecord]:
 class CloudWatchDataSource(DataSourceStrategy):
     """Queries failing Lambda invocations from CloudWatch Logs Insights."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        log_groups: list[str] | None = None,
+        query_timeout: int | None = None,
+    ) -> None:
+        # ``None`` means "fall back to env settings" — the registry injects the
+        # effective config (DB app_config row, env fallback) when available.
+        self._log_groups = log_groups
+        self._query_timeout = query_timeout
         self._client = boto3.client(
             "logs",
             region_name=settings.aws_region,
@@ -202,6 +210,16 @@ class CloudWatchDataSource(DataSourceStrategy):
             aws_secret_access_key=settings.aws_secret_access_key or None,
             aws_session_token=settings.aws_session_token or None,
         )
+
+    @property
+    def _effective_log_groups(self) -> list[str]:
+        return self._log_groups if self._log_groups is not None else settings.cloudwatch_log_groups
+
+    @property
+    def _effective_timeout(self) -> int:
+        if self._query_timeout is not None:
+            return self._query_timeout
+        return settings.cloudwatch_query_timeout
 
     def _build_query(self, component: str | None) -> str:
         query = (
@@ -218,7 +236,7 @@ class CloudWatchDataSource(DataSourceStrategy):
     def _start(self, query: str, start: datetime, end: datetime) -> str:
         try:
             resp = self._client.start_query(
-                logGroupNames=settings.cloudwatch_log_groups,
+                logGroupNames=self._effective_log_groups,
                 startTime=int(start.timestamp()),
                 endTime=int(end.timestamp()),
                 queryString=query,
@@ -235,7 +253,8 @@ class CloudWatchDataSource(DataSourceStrategy):
             raise RuntimeError(f"CloudWatch query failed: {exc}") from exc
 
     def _poll(self, query_id: str) -> list:
-        deadline = time.monotonic() + settings.cloudwatch_query_timeout
+        timeout = self._effective_timeout
+        deadline = time.monotonic() + timeout
         while True:
             result = self._get_results(query_id)
             status = result["status"]
@@ -245,8 +264,7 @@ class CloudWatchDataSource(DataSourceStrategy):
                 raise RuntimeError(f"CloudWatch query failed: status={status}")
             if time.monotonic() >= deadline:
                 raise RuntimeError(
-                    "CloudWatch query failed: query timed out after "
-                    f"{settings.cloudwatch_query_timeout}s"
+                    f"CloudWatch query failed: query timed out after {timeout}s"
                 )
             time.sleep(_POLL_INTERVAL)
 
@@ -256,9 +274,10 @@ class CloudWatchDataSource(DataSourceStrategy):
         end: datetime,
         component: str | None = None,
     ) -> list[FailureRecord]:
-        if not settings.cloudwatch_log_groups:
+        if not self._effective_log_groups:
             raise RuntimeError(
-                "CloudWatch data source requires cloudwatch_log_groups to be configured"
+                "CloudWatch data source requires log groups to be configured "
+                "(set them on the Config page or via CLOUDWATCH_LOG_GROUPS)"
             )
         query = self._build_query(component)
         logger.info("CloudWatchDataSource: executing query component=%s", component or "<all>")
