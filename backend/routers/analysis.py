@@ -2,18 +2,23 @@
 
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
 
 from backend.config import settings
+from backend.db.session import get_db
 from backend.models.schemas import (
     AnalyzeRequest,
     AnalyzeResponse,
+    FailureRecord,
     FailuresRequest,
     FailuresResponse,
     ProvidersResponse,
     TimeRange,
 )
 from backend.plugin_registry import describe_providers, get_data_source, get_log_backend
+from backend.repositories.failure_repo import upsert_failure_records
+from backend.repositories.project_repo import get_or_create_default_project
 
 router = APIRouter(prefix="/api", tags=["analysis"])
 
@@ -24,6 +29,11 @@ _WINDOW: dict[TimeRange, timedelta] = {
 }
 
 
+def _matches_trace(record: FailureRecord, trace_id: str) -> bool:
+    """True if the record's file_trace_id contains ``trace_id`` (case-insensitive)."""
+    return record.file_trace_id is not None and trace_id.lower() in record.file_trace_id.lower()
+
+
 @router.get("/providers", response_model=ProvidersResponse)
 async def get_providers() -> ProvidersResponse:
     """Report available data sources and log backends (T011/FR-005)."""
@@ -31,8 +41,10 @@ async def get_providers() -> ProvidersResponse:
 
 
 @router.post("/failures", response_model=FailuresResponse)
-async def post_failures(body: FailuresRequest) -> FailuresResponse:
-    """Fetch FAILED records for the requested time window and optional component."""
+async def post_failures(
+    body: FailuresRequest, db: Session = Depends(get_db)
+) -> FailuresResponse:
+    """Fetch FAILED records, persist them, and return the (optionally trace-filtered) set."""
     if body.time_range == TimeRange.CUSTOM:
         start, end = body.start, body.end
     else:
@@ -42,6 +54,15 @@ async def post_failures(body: FailuresRequest) -> FailuresResponse:
 
     ds = get_data_source(body.data_source)
     records = ds.fetch_records(start, end, body.component)
+
+    # Persist ALL fetched records under the default project before filtering.
+    project = get_or_create_default_project(db)
+    upsert_failure_records(db, project.id, records)
+    db.commit()
+
+    if body.trace_id:
+        records = [r for r in records if _matches_trace(r, body.trace_id)]
+
     return FailuresResponse(total=len(records), time_range=body.time_range, records=records)
 
 

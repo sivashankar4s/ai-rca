@@ -53,6 +53,7 @@ class FailuresRequest(BaseModel):
     start: datetime | None = None
     end: datetime | None = None
     data_source: Literal["athena", "postgres", "cloudwatch"] | None = None
+    trace_id: str | None = None
 
     @model_validator(mode="after")
     def _require_dates_for_custom(self) -> "FailuresRequest":

@@ -1,14 +1,20 @@
 """Tests for the analysis router — POST /api/failures, POST /api/analyze, GET /api/providers."""
 
+import uuid
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
+from backend.db.session import get_db
 from backend.main import app
 from backend.models.schemas import FailureRecord
 
 _CLIENT = TestClient(app)
+
+_DEFAULT_PROJECT_ID = uuid.uuid4()
 
 _FAKE_RECORD = FailureRecord(
     file_trace_id="trace-001",
@@ -27,6 +33,25 @@ def _mock_ds(records: list[FailureRecord] | None = None) -> MagicMock:
     mock = MagicMock()
     mock.fetch_records.return_value = records if records is not None else [_FAKE_RECORD]
     return mock
+
+
+def _fake_get_db() -> Iterator[MagicMock]:
+    yield MagicMock()
+
+
+@pytest.fixture(autouse=True)
+def _db_mocks() -> Iterator[tuple[MagicMock, MagicMock]]:
+    """Override get_db and stub the persistence repos so router tests never touch a real DB."""
+    app.dependency_overrides[get_db] = _fake_get_db
+    with (
+        patch(
+            "backend.routers.analysis.get_or_create_default_project",
+            return_value=MagicMock(id=_DEFAULT_PROJECT_ID),
+        ) as get_project,
+        patch("backend.routers.analysis.upsert_failure_records") as upsert,
+    ):
+        yield get_project, upsert
+    app.dependency_overrides.clear()
 
 
 class TestPostFailures:
@@ -149,6 +174,49 @@ class TestPostFailures:
     def test_invalid_time_range_returns_422(self) -> None:
         resp = _CLIENT.post("/api/failures", json={"time_range": "2h"})
         assert resp.status_code == 422
+
+    def test_fetched_records_are_persisted(
+        self, _db_mocks: tuple[MagicMock, MagicMock]
+    ) -> None:
+        get_project, upsert = _db_mocks
+        records = [_FAKE_RECORD]
+        with patch("backend.routers.analysis.get_data_source", return_value=_mock_ds(records)):
+            resp = _CLIENT.post("/api/failures", json={"time_range": "1d"})
+        assert resp.status_code == 200
+        get_project.assert_called_once()
+        upsert.assert_called_once()
+        args = upsert.call_args[0]
+        assert args[1] == _DEFAULT_PROJECT_ID
+        assert args[2] == records
+
+    def test_trace_id_filters_response_but_persists_all(
+        self, _db_mocks: tuple[MagicMock, MagicMock]
+    ) -> None:
+        _, upsert = _db_mocks
+        r1 = FailureRecord(file_trace_id="trace-001", status="FAILED")
+        r2 = FailureRecord(file_trace_id="trace-XYZ", status="FAILED")
+        with patch("backend.routers.analysis.get_data_source", return_value=_mock_ds([r1, r2])):
+            resp = _CLIENT.post("/api/failures", json={"time_range": "1d", "trace_id": "001"})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["total"] == 1
+        assert body["records"][0]["file_trace_id"] == "trace-001"
+        assert upsert.call_args[0][2] == [r1, r2]  # all persisted, pre-filter
+
+    def test_trace_id_match_is_case_insensitive(self) -> None:
+        r1 = FailureRecord(file_trace_id="trace-001")
+        r2 = FailureRecord(file_trace_id="trace-XYZ")
+        with patch("backend.routers.analysis.get_data_source", return_value=_mock_ds([r1, r2])):
+            resp = _CLIENT.post("/api/failures", json={"time_range": "1d", "trace_id": "TRACE"})
+        assert resp.json()["total"] == 2
+
+    def test_trace_id_no_match_returns_empty(self) -> None:
+        r1 = FailureRecord(file_trace_id="trace-001")
+        r2 = FailureRecord(file_trace_id=None)
+        with patch("backend.routers.analysis.get_data_source", return_value=_mock_ds([r1, r2])):
+            resp = _CLIENT.post("/api/failures", json={"time_range": "1d", "trace_id": "zzz"})
+        assert resp.json()["total"] == 0
+        assert resp.json()["records"] == []
 
 
 class TestPostAnalyze:
