@@ -383,6 +383,46 @@ class TestCloudWatchDataSource:
         with pytest.raises(RuntimeError, match="CloudWatch query failed"):
             ds.fetch_records(_START, _END)
 
+    def _not_found(self, group: str) -> ClientError:
+        return ClientError(
+            {
+                "Error": {
+                    "Code": "ResourceNotFoundException",
+                    "Message": f"Log group '{group}' does not exist for account ID '1'",
+                }
+            },
+            "StartQuery",
+        )
+
+    def test_nonexistent_log_group_dropped_and_retried(self, monkeypatch) -> None:
+        monkeypatch.setattr(
+            settings, "cloudwatch_log_groups", ["/aws/lambda", "/aws/lambda/real-fn"]
+        )
+        ds, client = _make_ds()
+        client.start_query.side_effect = [
+            self._not_found("/aws/lambda"),
+            {"queryId": "q-1"},
+        ]
+        client.get_query_results.return_value = {"status": "Complete", "results": []}
+        ds.fetch_records(_START, _END)
+        # Second call retried with only the valid group.
+        assert client.start_query.call_args.kwargs["logGroupNames"] == ["/aws/lambda/real-fn"]
+
+    def test_all_log_groups_missing_raises_clear_error(self, monkeypatch) -> None:
+        monkeypatch.setattr(settings, "cloudwatch_log_groups", ["/aws/lambda"])
+        ds, client = _make_ds()
+        client.start_query.side_effect = self._not_found("/aws/lambda")
+        with pytest.raises(RuntimeError, match="none of the configured log groups exist"):
+            ds.fetch_records(_START, _END)
+
+    def test_non_resource_client_error_still_raises(self) -> None:
+        ds, client = _make_ds()
+        client.start_query.side_effect = ClientError(
+            {"Error": {"Code": "AccessDenied", "Message": "no"}}, "StartQuery"
+        )
+        with pytest.raises(RuntimeError, match="CloudWatch query failed"):
+            ds.fetch_records(_START, _END)
+
     def test_get_results_boto_error_wrapped(self) -> None:
         ds, client = _make_ds()
         client.start_query.return_value = {"queryId": "q-1"}

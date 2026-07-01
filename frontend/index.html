@@ -213,12 +213,20 @@
               Log Groups <span class="required">*</span>
               <span class="optional">(select from your AWS account)</span>
             </label>
-            <div class="cw-lg-toolbar">
-              <input type="text" id="config-cw-lg-search" placeholder="Filter log groups…" autocomplete="off" />
-              <button type="button" class="btn-sm" id="config-cw-lg-refresh">Refresh</button>
+            <div class="cw-lg-dropdown" id="config-cw-lg-dropdown">
+              <button type="button" class="cw-lg-toggle" id="config-cw-lg-toggle">
+                <span id="config-cw-lg-summary">Select log groups</span>
+                <span class="cw-lg-caret" aria-hidden="true">▾</span>
+              </button>
+              <div class="cw-lg-panel hidden" id="config-cw-lg-panel">
+                <div class="cw-lg-toolbar">
+                  <input type="text" id="config-cw-lg-search" placeholder="Filter log groups…" autocomplete="off" />
+                  <button type="button" class="btn-sm" id="config-cw-lg-refresh">Refresh</button>
+                </div>
+                <div class="cw-lg-status" id="config-cw-lg-status">Save AWS credentials to load log groups.</div>
+                <div class="cw-lg-list" id="config-cw-lg-list"></div>
+              </div>
             </div>
-            <div class="cw-lg-status" id="config-cw-lg-status">Save AWS credentials to load log groups.</div>
-            <div class="cw-lg-list hidden" id="config-cw-lg-list"></div>
             <span class="config-field-error hidden" id="config-cw-log-groups-error"></span>
           </div>
           <div class="config-field">

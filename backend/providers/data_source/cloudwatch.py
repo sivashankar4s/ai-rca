@@ -92,6 +92,15 @@ def _anomaly_reason(message: str, max_mem: int | None, mem_size: int | None) -> 
     return None
 
 
+def _missing_log_group(exc: ClientError) -> str | None:
+    """Extract the offending log group from a ResourceNotFoundException, or None."""
+    err = exc.response.get("Error", {})
+    if err.get("Code") != "ResourceNotFoundException":
+        return None
+    match = re.search(r"Log group '([^']+)' does not exist", err.get("Message", ""))
+    return match.group(1) if match else None
+
+
 def _ordered_unique(items: list[str]) -> list[str]:
     seen: set[str] = set()
     out: list[str] = []
@@ -269,17 +278,35 @@ class CloudWatchDataSource(DataSourceStrategy):
         return query
 
     def _start(self, query: str, start: datetime, end: datetime) -> str:
-        try:
-            resp = self._client.start_query(
-                logGroupNames=self._effective_log_groups,
-                startTime=int(start.timestamp()),
-                endTime=int(end.timestamp()),
-                queryString=query,
-                limit=_QUERY_LIMIT,
-            )
-        except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"CloudWatch query failed: {exc}") from exc
-        return resp["queryId"]
+        # Drop non-existent log groups and retry: Logs Insights fails the whole
+        # query if any named group is missing, and stale config shouldn't block
+        # the valid groups.
+        groups = list(self._effective_log_groups)
+        while groups:
+            try:
+                resp = self._client.start_query(
+                    logGroupNames=groups,
+                    startTime=int(start.timestamp()),
+                    endTime=int(end.timestamp()),
+                    queryString=query,
+                    limit=_QUERY_LIMIT,
+                )
+                return resp["queryId"]
+            except ClientError as exc:
+                missing = _missing_log_group(exc)
+                if missing and missing in groups:
+                    logger.warning(
+                        "CloudWatchDataSource: dropping non-existent log group '%s'", missing
+                    )
+                    groups.remove(missing)
+                    continue
+                raise RuntimeError(f"CloudWatch query failed: {exc}") from exc
+            except BotoCoreError as exc:
+                raise RuntimeError(f"CloudWatch query failed: {exc}") from exc
+        raise RuntimeError(
+            "CloudWatch query failed: none of the configured log groups exist "
+            "in this account/region"
+        )
 
     def _get_results(self, query_id: str) -> dict:
         try:

@@ -641,6 +641,10 @@ const cwLogGroupsError     = document.getElementById('config-cw-log-groups-error
 const cwTimeoutError       = document.getElementById('config-cw-timeout-error');
 const cwSaveForm           = document.getElementById('config-cloudwatch-form');
 const cwFeedback           = document.getElementById('config-cw-feedback');
+const cwLgDropdown         = document.getElementById('config-cw-lg-dropdown');
+const cwLgToggle           = document.getElementById('config-cw-lg-toggle');
+const cwLgSummary          = document.getElementById('config-cw-lg-summary');
+const cwLgPanel            = document.getElementById('config-cw-lg-panel');
 const cwLgSearch           = document.getElementById('config-cw-lg-search');
 const cwLgRefresh          = document.getElementById('config-cw-lg-refresh');
 const cwLgStatus           = document.getElementById('config-cw-lg-status');
@@ -712,8 +716,9 @@ async function loadConfigPage() {
       await fetchCwLogGroups();
     } else {
       cwAllGroups = [];
-      cwLgList.classList.add('hidden');
+      cwLgList.innerHTML = '';
       cwLgStatus.textContent = 'Save AWS credentials to load log groups.';
+      _cwUpdateSummary();
     }
 
     const github = data.github_mcp;
@@ -823,21 +828,24 @@ function _esc(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function _cwStatusLine() {
-  cwLgStatus.textContent = `${cwAllGroups.length} log groups • ${cwSelectedGroups.size} selected`;
+function _cwUpdateSummary() {
+  const n = cwSelectedGroups.size;
+  cwLgSummary.textContent = n === 0
+    ? 'Select log groups'
+    : (n === 1 ? [...cwSelectedGroups][0] : `${n} log groups selected`);
+  if (cwAllGroups.length > 0) {
+    cwLgStatus.textContent = `${cwAllGroups.length} available • ${n} selected`;
+  }
 }
 
 function _renderCwLogGroups() {
-  // Union of fetched groups and already-selected names, so saved groups that
-  // aren't in the current fetch (e.g. after switching accounts) aren't dropped.
-  const union = [...new Set([...cwSelectedGroups, ...cwAllGroups])].sort();
-  if (union.length === 0) {
-    cwLgList.classList.add('hidden');
+  const all = [...cwAllGroups].sort();
+  if (all.length === 0) {
+    cwLgList.innerHTML = '';
     return;
   }
   const filter = cwLgSearch.value.trim().toLowerCase();
-  const visible = filter ? union.filter(g => g.toLowerCase().includes(filter)) : union;
-  cwLgList.classList.remove('hidden');
+  const visible = filter ? all.filter(g => g.toLowerCase().includes(filter)) : all;
   if (visible.length === 0) {
     cwLgList.innerHTML = '<p class="cw-lg-empty">No log groups match the filter.</p>';
     return;
@@ -850,7 +858,7 @@ function _renderCwLogGroups() {
     cb.addEventListener('change', () => {
       const name = cb.getAttribute('data-lg');
       if (cb.checked) cwSelectedGroups.add(name); else cwSelectedGroups.delete(name);
-      _cwStatusLine();
+      _cwUpdateSummary();
     });
   });
 }
@@ -863,26 +871,35 @@ async function fetchCwLogGroups() {
     const data = await resp.json();
     if (resp.ok) {
       cwAllGroups = data.log_groups || [];
+      // Drop any previously-saved selections that no longer exist in the account
+      // so stale/invalid groups can't break the fetch query.
+      if (cwAllGroups.length > 0) {
+        const existing = new Set(cwAllGroups);
+        [...cwSelectedGroups].forEach(g => { if (!existing.has(g)) cwSelectedGroups.delete(g); });
+      }
       _renderCwLogGroups();
       if (cwAllGroups.length === 0) {
         cwLgStatus.textContent = 'No log groups found in this account/region.';
-      } else {
-        _cwStatusLine();
       }
+      _cwUpdateSummary();
     } else {
-      cwLgList.classList.add('hidden');
+      cwLgList.innerHTML = '';
       cwLgStatus.textContent = data.detail
         ? `Failed to load log groups: ${data.detail}`
         : 'Failed to load log groups.';
     }
   } catch (err) {
-    cwLgList.classList.add('hidden');
+    cwLgList.innerHTML = '';
     cwLgStatus.textContent = `Error loading log groups: ${err.message}`;
   } finally {
     cwLgRefresh.disabled = false;
   }
 }
 
+cwLgToggle.addEventListener('click', () => cwLgPanel.classList.toggle('hidden'));
+document.addEventListener('click', (e) => {
+  if (!cwLgDropdown.contains(e.target)) cwLgPanel.classList.add('hidden');
+});
 cwLgSearch.addEventListener('input', _renderCwLogGroups);
 cwLgRefresh.addEventListener('click', fetchCwLogGroups);
 
