@@ -636,16 +636,19 @@ const awsSaveForm          = document.getElementById('config-aws-form');
 const awsFeedback          = document.getElementById('config-aws-feedback');
 
 const cwStatusBadge        = document.getElementById('cloudwatch-status-badge');
-const cwLogGroupsInput     = document.getElementById('config-cw-log-groups');
 const cwTimeoutInput       = document.getElementById('config-cw-timeout');
 const cwLogGroupsError     = document.getElementById('config-cw-log-groups-error');
 const cwTimeoutError       = document.getElementById('config-cw-timeout-error');
 const cwSaveForm           = document.getElementById('config-cloudwatch-form');
 const cwFeedback           = document.getElementById('config-cw-feedback');
-const cwDiscoverType       = document.getElementById('config-cw-discover-type');
-const cwDiscoverPrefix     = document.getElementById('config-cw-discover-prefix');
-const cwDiscoverBtn        = document.getElementById('config-cw-discover-btn');
-const cwDiscoverResults    = document.getElementById('config-cw-discover-results');
+const cwLgSearch           = document.getElementById('config-cw-lg-search');
+const cwLgRefresh          = document.getElementById('config-cw-lg-refresh');
+const cwLgStatus           = document.getElementById('config-cw-lg-status');
+const cwLgList             = document.getElementById('config-cw-lg-list');
+
+// CloudWatch log-group selection state (populated from AWS via the API).
+let cwAllGroups = [];
+const cwSelectedGroups = new Set();
 
 const githubMcpStatusBadge = document.getElementById('github-mcp-status-badge');
 const githubRepoInput      = document.getElementById('config-github-repo');
@@ -700,9 +703,18 @@ async function loadConfigPage() {
     _setBadge(awsStatusBadge, aws.configured);
 
     const cw = data.cloudwatch || { configured: false, log_groups: [] };
-    cwLogGroupsInput.value = (cw.log_groups || []).join('\n');
-    cwTimeoutInput.value   = cw.query_timeout != null ? String(cw.query_timeout) : '';
+    cwSelectedGroups.clear();
+    (cw.log_groups || []).forEach(g => cwSelectedGroups.add(g));
+    cwTimeoutInput.value = cw.query_timeout != null ? String(cw.query_timeout) : '';
+    cwLgSearch.value = '';
     _setBadge(cwStatusBadge, cw.configured);
+    if (aws.configured) {
+      await fetchCwLogGroups();
+    } else {
+      cwAllGroups = [];
+      cwLgList.classList.add('hidden');
+      cwLgStatus.textContent = 'Save AWS credentials to load log groups.';
+    }
 
     const github = data.github_mcp;
     githubRepoInput.value   = github.repo || '';
@@ -761,16 +773,17 @@ awsSaveForm.addEventListener('submit', async (e) => {
 
 cwSaveForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  _clearFieldError(cwLogGroupsInput, cwLogGroupsError);
   _clearFieldError(cwTimeoutInput, cwTimeoutError);
+  cwLogGroupsError.classList.add('hidden');
   cwFeedback.classList.add('hidden');
 
-  const logGroups = cwLogGroupsInput.value.split('\n').map(s => s.trim()).filter(Boolean);
+  const logGroups = [...cwSelectedGroups];
   const timeoutRaw = cwTimeoutInput.value.trim();
 
   let valid = true;
   if (logGroups.length === 0) {
-    _showFieldError(cwLogGroupsInput, cwLogGroupsError, 'At least one log group is required.');
+    cwLogGroupsError.textContent = 'Select at least one log group.';
+    cwLogGroupsError.classList.remove('hidden');
     valid = false;
   }
   let timeout;
@@ -804,60 +817,74 @@ cwSaveForm.addEventListener('submit', async (e) => {
   }
 });
 
-// --- CloudWatch log-group discovery (optional helper) -----------------------
+// --- CloudWatch log-group multi-select (populated from AWS) ------------------
 
-cwDiscoverType.addEventListener('change', () => {
-  cwDiscoverPrefix.value = cwDiscoverType.value;
-});
-
-function _addLogGroups(names) {
-  const existing = cwLogGroupsInput.value.split('\n').map(s => s.trim()).filter(Boolean);
-  const merged = existing.slice();
-  for (const name of names) {
-    if (!merged.includes(name)) merged.push(name);
-  }
-  cwLogGroupsInput.value = merged.join('\n');
-  _clearFieldError(cwLogGroupsInput, cwLogGroupsError);
+function _esc(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function _renderDiscoverResults(groups) {
-  cwDiscoverResults.classList.remove('hidden');
-  if (groups.length === 0) {
-    cwDiscoverResults.innerHTML = '<p class="cw-discover-empty">No log groups found for that prefix.</p>';
+function _cwStatusLine() {
+  cwLgStatus.textContent = `${cwAllGroups.length} log groups • ${cwSelectedGroups.size} selected`;
+}
+
+function _renderCwLogGroups() {
+  // Union of fetched groups and already-selected names, so saved groups that
+  // aren't in the current fetch (e.g. after switching accounts) aren't dropped.
+  const union = [...new Set([...cwSelectedGroups, ...cwAllGroups])].sort();
+  if (union.length === 0) {
+    cwLgList.classList.add('hidden');
     return;
   }
-  const items = groups.map((g, i) =>
-    `<label class="cw-discover-item"><input type="checkbox" value="${g}" id="cw-dg-${i}" /> ${g}</label>`
-  ).join('');
-  cwDiscoverResults.innerHTML =
-    `<div class="cw-discover-list">${items}</div>` +
-    '<button type="button" class="btn-sm" id="config-cw-add-selected">Add selected</button>';
-  document.getElementById('config-cw-add-selected').addEventListener('click', () => {
-    const checked = [...cwDiscoverResults.querySelectorAll('input[type=checkbox]:checked')].map(c => c.value);
-    if (checked.length) _addLogGroups(checked);
+  const filter = cwLgSearch.value.trim().toLowerCase();
+  const visible = filter ? union.filter(g => g.toLowerCase().includes(filter)) : union;
+  cwLgList.classList.remove('hidden');
+  if (visible.length === 0) {
+    cwLgList.innerHTML = '<p class="cw-lg-empty">No log groups match the filter.</p>';
+    return;
+  }
+  cwLgList.innerHTML = visible.map((g, i) => {
+    const checked = cwSelectedGroups.has(g) ? ' checked' : '';
+    return `<label class="cw-lg-item"><input type="checkbox" data-lg="${_esc(g)}" id="cw-lg-${i}"${checked} /> ${_esc(g)}</label>`;
+  }).join('');
+  cwLgList.querySelectorAll('input[type=checkbox]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const name = cb.getAttribute('data-lg');
+      if (cb.checked) cwSelectedGroups.add(name); else cwSelectedGroups.delete(name);
+      _cwStatusLine();
+    });
   });
 }
 
-cwDiscoverBtn.addEventListener('click', async () => {
-  cwFeedback.classList.add('hidden');
-  cwDiscoverResults.classList.add('hidden');
-  cwDiscoverBtn.disabled = true;
-  const prefix = cwDiscoverPrefix.value.trim();
-  const url = '/api/config/cloudwatch/log-groups' + (prefix ? `?prefix=${encodeURIComponent(prefix)}` : '');
+async function fetchCwLogGroups() {
+  cwLgStatus.textContent = 'Loading log groups…';
+  cwLgRefresh.disabled = true;
   try {
-    const resp = await fetch(url);
+    const resp = await fetch('/api/config/cloudwatch/log-groups');
     const data = await resp.json();
     if (resp.ok) {
-      _renderDiscoverResults(data.log_groups || []);
+      cwAllGroups = data.log_groups || [];
+      _renderCwLogGroups();
+      if (cwAllGroups.length === 0) {
+        cwLgStatus.textContent = 'No log groups found in this account/region.';
+      } else {
+        _cwStatusLine();
+      }
     } else {
-      _showFeedback(cwFeedback, data.detail ? JSON.stringify(data.detail) : 'Failed to discover log groups.', true);
+      cwLgList.classList.add('hidden');
+      cwLgStatus.textContent = data.detail
+        ? `Failed to load log groups: ${data.detail}`
+        : 'Failed to load log groups.';
     }
   } catch (err) {
-    _showFeedback(cwFeedback, `Error: ${err.message}`, true);
+    cwLgList.classList.add('hidden');
+    cwLgStatus.textContent = `Error loading log groups: ${err.message}`;
   } finally {
-    cwDiscoverBtn.disabled = false;
+    cwLgRefresh.disabled = false;
   }
-});
+}
+
+cwLgSearch.addEventListener('input', _renderCwLogGroups);
+cwLgRefresh.addEventListener('click', fetchCwLogGroups);
 
 githubMcpSaveForm.addEventListener('submit', async (e) => {
   e.preventDefault();

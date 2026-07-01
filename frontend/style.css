@@ -469,13 +469,14 @@ a.github-pr-title:hover { color: var(--accent); text-decoration: underline; }
 .config-feedback--success { background: rgba(67,181,129,.12); border: 1px solid rgba(67,181,129,.3); color: var(--success); }
 .config-feedback--error { background: rgba(240,71,71,.1); border: 1px solid rgba(240,71,71,.3); color: var(--danger); }
 
-.cw-discover-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.cw-discover-row select, .cw-discover-row input { flex: 1 1 120px; min-width: 0; }
-.cw-discover-results { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
-.cw-discover-list { display: flex; flex-direction: column; gap: 4px; max-height: 160px; overflow-y: auto;
+.cw-lg-toolbar { display: flex; gap: 8px; align-items: center; }
+.cw-lg-toolbar input { flex: 1 1 auto; min-width: 0; }
+.cw-lg-status { color: var(--muted); font-size: 12px; margin-top: 6px; }
+.cw-lg-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; max-height: 200px; overflow-y: auto;
   border: 1px solid var(--border); border-radius: var(--radius); padding: 8px; }
-.cw-discover-item { color: var(--text); font-size: 12px; font-weight: 400; display: flex; gap: 6px; align-items: center; }
-.cw-discover-empty { color: var(--muted); font-size: 12px; margin: 0; }
+.cw-lg-item { color: var(--text); font-size: 12px; font-weight: 400; display: flex; gap: 6px; align-items: center; }
+.cw-lg-item input { flex: 0 0 auto; }
+.cw-lg-empty { color: var(--muted); font-size: 12px; margin: 0; }
 
 .config-note { color: var(--muted); font-size: 12px; margin: 0 0 12px; line-height: 1.5; }
 .config-note code { background: var(--surface); border-radius: 3px; padding: 1px 4px; }
