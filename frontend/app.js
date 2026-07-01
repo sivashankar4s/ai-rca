@@ -13,6 +13,7 @@ const customDatesEl     = document.getElementById('custom-dates');
 const startDtEl         = document.getElementById('start-dt');
 const endDtEl           = document.getElementById('end-dt');
 const componentEl       = document.getElementById('component');
+const traceIdEl         = document.getElementById('trace-id');
 const fetchBtn          = document.getElementById('fetch-btn');
 const fetchSpinner      = document.getElementById('fetch-spinner');
 const errorBanner       = document.getElementById('error-banner');
@@ -38,7 +39,6 @@ async function loadProviders() {
     if (!resp.ok) return;
     const data = await resp.json();
 
-    // Populate Source selector
     dataSourceEl.innerHTML = '';
     for (const ds of data.data_sources) {
       const opt = document.createElement('option');
@@ -48,7 +48,6 @@ async function loadProviders() {
       dataSourceEl.appendChild(opt);
     }
 
-    // Populate Log Backend selector
     logBackendEl.innerHTML = '';
     for (const lb of data.log_backends) {
       const opt = document.createElement('option');
@@ -94,7 +93,7 @@ function renderTable() {
     tableArea.innerHTML = `
       <div class="empty-state" role="status">
         <strong>No failures found</strong>
-        <p>Try a wider time range or remove the component filter.</p>
+        <p>Try a wider time range, clear the trace filter, or remove the component filter.</p>
       </div>`;
     paginationEl.style.display = 'none';
     updateSelectionBar();
@@ -106,11 +105,17 @@ function renderTable() {
   const rows = records.map(r => {
     const checked = selectedIds.has(r.file_trace_id) ? 'checked' : '';
     const traceId = (r.file_trace_id ?? '').replace(/"/g, '&quot;');
+    // Trace cell: expandable raw CloudWatch/log context when present (XSS-safe).
+    const traceCell = r.raw_payload
+      ? `<details class="raw-payload"><summary>${fmt(r.file_trace_id)}</summary>` +
+        `<pre>${fmt(JSON.stringify(r.raw_payload, null, 2))}</pre></details>`
+      : fmt(r.file_trace_id);
     return `
       <tr>
         <td><input type="checkbox" class="row-check" data-id="${traceId}" ${checked} aria-label="Select record ${traceId}"/></td>
-        <td>${fmt(r.file_trace_id)}</td>
+        <td>${traceCell}</td>
         <td><span class="tag tag-component">${fmt(r.component_name)}</span></td>
+        <td class="message-cell">${fmt(r.message)}</td>
         <td>${fmt(r.application_name)}</td>
         <td>${fmt(r.organization)}</td>
         <td><span class="tag tag-failed">${fmt(r.status)}</span></td>
@@ -128,6 +133,7 @@ function renderTable() {
             <th><input type="checkbox" id="select-all" ${allPageSelected ? 'checked' : ''} aria-label="Select all on page"/></th>
             <th>Trace ID</th>
             <th>Component</th>
+            <th>Message</th>
             <th>Application</th>
             <th>Org</th>
             <th>Status</th>
@@ -253,8 +259,10 @@ async function fetchFailures() {
   const range = timeRangeEl.value;
   const component = componentEl.value.trim() || null;
   const dataSource = dataSourceEl.value || null;
+  const traceId = traceIdEl.value.trim();
 
   const body = { time_range: range, component, data_source: dataSource };
+  if (traceId) body.trace_id = traceId;
 
   if (range === 'custom') {
     const start = startDtEl.value;
@@ -338,7 +346,7 @@ async function analyzeSelected() {
   }
 }
 
-// ── Wire up events ─────────────────────────────────────────────────────────
+// ── Wire up RCA events ─────────────────────────────────────────────────────
 timeRangeEl.addEventListener('change', () => {
   customDatesEl.classList.toggle('visible', timeRangeEl.value === 'custom');
 });
@@ -359,7 +367,6 @@ clearSelectionBtn.addEventListener('click', () => {
 
 // ── GitHub Integration ─────────────────────────────────────────────────────
 
-const githubSection       = document.getElementById('github-section');
 const githubNotConfigured = document.getElementById('github-not-configured');
 const githubContent       = document.getElementById('github-content');
 const githubPrsList       = document.getElementById('github-prs-list');
@@ -375,8 +382,9 @@ const postToPrSpinner     = document.getElementById('post-to-pr-spinner');
 const postToPrResult      = document.getElementById('post-to-pr-result');
 
 let githubPrState = 'open';
-let currentReviewData = null;   // the last CodeReviewResult shown
-let currentPrNumber = null;     // PR number for the current review (null = branch review)
+let githubLoaded = false;
+let currentReviewData = null;
+let currentPrNumber = null;
 
 function escHtml(str) {
   return String(str ?? '')
@@ -387,6 +395,7 @@ function escHtml(str) {
 }
 
 async function loadGithubPullRequests() {
+  githubLoaded = true;
   githubPrsList.innerHTML = '<p class="github-empty">Loading…</p>';
   try {
     const resp = await fetch(`/api/github/pull-requests?state=${githubPrState}`);
@@ -545,8 +554,6 @@ function renderReviewFindings(data) {
   });
 }
 
-// ── Post to PR (T009 / T015) ───────────────────────────────────────────────
-
 postToPrBtn.addEventListener('click', async () => {
   if (!currentReviewData || currentPrNumber === null) return;
 
@@ -614,17 +621,9 @@ githubPrStateGroup.addEventListener('click', (e) => {
   loadGithubPullRequests();
 });
 
-// Kick off initial load
-loadGithubPullRequests();
-
 // ── Config Page ────────────────────────────────────────────────────────────
 
 const MASK_SENTINEL = '••••••••';
-
-const navAnalysis      = document.getElementById('nav-analysis');
-const navConfig        = document.getElementById('nav-config');
-const analysisView     = document.getElementById('analysis-view');
-const configSection    = document.getElementById('config-section');
 
 const awsStatusBadge       = document.getElementById('aws-status-badge');
 const awsKeyIdInput        = document.getElementById('config-aws-key-id');
@@ -634,6 +633,14 @@ const awsKeyIdError        = document.getElementById('config-aws-key-id-error');
 const awsSecretError       = document.getElementById('config-aws-secret-error');
 const awsSaveForm          = document.getElementById('config-aws-form');
 const awsFeedback          = document.getElementById('config-aws-feedback');
+
+const cwStatusBadge        = document.getElementById('cloudwatch-status-badge');
+const cwLogGroupsInput     = document.getElementById('config-cw-log-groups');
+const cwTimeoutInput       = document.getElementById('config-cw-timeout');
+const cwLogGroupsError     = document.getElementById('config-cw-log-groups-error');
+const cwTimeoutError       = document.getElementById('config-cw-timeout-error');
+const cwSaveForm           = document.getElementById('config-cloudwatch-form');
+const cwFeedback           = document.getElementById('config-cw-feedback');
 
 const githubMcpStatusBadge = document.getElementById('github-mcp-status-badge');
 const githubRepoInput      = document.getElementById('config-github-repo');
@@ -656,6 +663,18 @@ function _showFeedback(el, message, isError) {
   el.classList.add(isError ? 'config-feedback--error' : 'config-feedback--success');
 }
 
+function _clearFieldError(inputEl, errorEl) {
+  errorEl.textContent = '';
+  errorEl.classList.add('hidden');
+  inputEl.classList.remove('config-field--invalid');
+}
+
+function _showFieldError(inputEl, errorEl, message) {
+  errorEl.textContent = message;
+  errorEl.classList.remove('hidden');
+  inputEl.classList.add('config-field--invalid');
+}
+
 async function loadConfigPage() {
   try {
     const resp = await fetch('/api/config');
@@ -667,27 +686,19 @@ async function loadConfigPage() {
     awsRegionInput.value   = aws.region || '';
     _setBadge(awsStatusBadge, aws.configured);
 
+    const cw = data.cloudwatch || { configured: false, log_groups: [] };
+    cwLogGroupsInput.value = (cw.log_groups || []).join('\n');
+    cwTimeoutInput.value   = cw.query_timeout != null ? String(cw.query_timeout) : '';
+    _setBadge(cwStatusBadge, cw.configured);
+
     const github = data.github_mcp;
     githubRepoInput.value   = github.repo || '';
     githubTokenInput.value  = github.token || '';
     githubBranchInput.value = github.default_branch || '';
     _setBadge(githubMcpStatusBadge, github.configured);
-  } catch (e) {
-    awsFeedback.textContent = 'Failed to load configuration.';
-    awsFeedback.classList.remove('hidden');
+  } catch {
+    _showFeedback(awsFeedback, 'Failed to load configuration.', true);
   }
-}
-
-function _clearFieldError(inputEl, errorEl) {
-  errorEl.textContent = '';
-  errorEl.classList.add('hidden');
-  inputEl.classList.remove('config-field--invalid');
-}
-
-function _showFieldError(inputEl, errorEl, message) {
-  errorEl.textContent = message;
-  errorEl.classList.remove('hidden');
-  inputEl.classList.add('config-field--invalid');
 }
 
 awsSaveForm.addEventListener('submit', async (e) => {
@@ -711,11 +722,6 @@ awsSaveForm.addEventListener('submit', async (e) => {
   }
   if (!valid) return;
 
-  const isClearing = !secret || (secret !== MASK_SENTINEL && !secret.trim());
-  if (isClearing) {
-    if (!window.confirm('This will remove the stored Secret Access Key. Are you sure?')) return;
-  }
-
   try {
     const resp = await fetch('/api/config/aws', {
       method: 'PATCH',
@@ -727,11 +733,55 @@ awsSaveForm.addEventListener('submit', async (e) => {
       _showFeedback(awsFeedback, 'AWS configuration saved.', false);
       await loadConfigPage();
     } else {
-      const msg = data.detail ? JSON.stringify(data.detail) : 'Failed to save AWS configuration.';
-      _showFeedback(awsFeedback, msg, true);
+      _showFeedback(awsFeedback, data.detail ? JSON.stringify(data.detail) : 'Failed to save AWS configuration.', true);
     }
   } catch (err) {
     _showFeedback(awsFeedback, `Error: ${err.message}`, true);
+  }
+});
+
+cwSaveForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  _clearFieldError(cwLogGroupsInput, cwLogGroupsError);
+  _clearFieldError(cwTimeoutInput, cwTimeoutError);
+  cwFeedback.classList.add('hidden');
+
+  const logGroups = cwLogGroupsInput.value.split('\n').map(s => s.trim()).filter(Boolean);
+  const timeoutRaw = cwTimeoutInput.value.trim();
+
+  let valid = true;
+  if (logGroups.length === 0) {
+    _showFieldError(cwLogGroupsInput, cwLogGroupsError, 'At least one log group is required.');
+    valid = false;
+  }
+  let timeout;
+  if (timeoutRaw) {
+    timeout = Number(timeoutRaw);
+    if (!Number.isFinite(timeout) || timeout <= 0) {
+      _showFieldError(cwTimeoutInput, cwTimeoutError, 'Timeout must be a positive number of seconds.');
+      valid = false;
+    }
+  }
+  if (!valid) return;
+
+  const payload = { log_groups: logGroups };
+  if (timeout !== undefined) payload.query_timeout = timeout;
+
+  try {
+    const resp = await fetch('/api/config/cloudwatch', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await resp.json();
+    if (resp.ok && data.success) {
+      _showFeedback(cwFeedback, 'CloudWatch configuration saved.', false);
+      await loadConfigPage();
+    } else {
+      _showFeedback(cwFeedback, data.detail ? JSON.stringify(data.detail) : 'Failed to save CloudWatch configuration.', true);
+    }
+  } catch (err) {
+    _showFeedback(cwFeedback, `Error: ${err.message}`, true);
   }
 });
 
@@ -756,11 +806,6 @@ githubMcpSaveForm.addEventListener('submit', async (e) => {
   }
   if (!valid) return;
 
-  const isClearing = !token || (token !== MASK_SENTINEL && !token.trim());
-  if (isClearing) {
-    if (!window.confirm('This will remove the stored Personal Access Token. Are you sure?')) return;
-  }
-
   try {
     const resp = await fetch('/api/config/github-mcp', {
       method: 'PATCH',
@@ -772,32 +817,46 @@ githubMcpSaveForm.addEventListener('submit', async (e) => {
       _showFeedback(githubMcpFeedback, 'GitHub MCP configuration saved.', false);
       await loadConfigPage();
     } else {
-      const msg = data.detail ? JSON.stringify(data.detail) : 'Failed to save GitHub MCP configuration.';
-      _showFeedback(githubMcpFeedback, msg, true);
+      _showFeedback(githubMcpFeedback, data.detail ? JSON.stringify(data.detail) : 'Failed to save GitHub MCP configuration.', true);
     }
   } catch (err) {
     _showFeedback(githubMcpFeedback, `Error: ${err.message}`, true);
   }
 });
 
-// ── Navigation ─────────────────────────────────────────────────────────────
+// ── Navigation (tabs) ──────────────────────────────────────────────────────
 
-function showAnalysis() {
-  analysisView.classList.remove('hidden');
-  configSection.classList.add('hidden');
-  navAnalysis.classList.add('active');
-  navConfig.classList.remove('active');
+const navRca      = document.getElementById('nav-rca');
+const navGithub   = document.getElementById('nav-github');
+const navConfig   = document.getElementById('nav-config');
+const rcaView     = document.getElementById('rca-view');
+const githubView  = document.getElementById('github-view');
+const configView  = document.getElementById('config-view');
+
+function _activateTab(view, tab) {
+  [rcaView, githubView, configView].forEach(v => v.classList.add('hidden'));
+  [navRca, navGithub, navConfig].forEach(t => t.classList.remove('active'));
+  view.classList.remove('hidden');
+  tab.classList.add('active');
+}
+
+function showRca() {
+  _activateTab(rcaView, navRca);
+}
+
+function showGithub() {
+  _activateTab(githubView, navGithub);
+  if (!githubLoaded) loadGithubPullRequests();
 }
 
 function showConfig() {
-  analysisView.classList.add('hidden');
-  configSection.classList.remove('hidden');
-  navConfig.classList.add('active');
-  navAnalysis.classList.remove('active');
+  _activateTab(configView, navConfig);
   loadConfigPage();
 }
 
-navAnalysis.addEventListener('click', showAnalysis);
+navRca.addEventListener('click', showRca);
+navGithub.addEventListener('click', showGithub);
 navConfig.addEventListener('click', showConfig);
+
 // ── Init ───────────────────────────────────────────────────────────────────
 loadProviders();
