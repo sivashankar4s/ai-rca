@@ -26,16 +26,33 @@ _LOG_BACKEND_CATALOGUE: list[tuple[str, str]] = [
 
 
 def _build_cloudwatch_source(db: Session | None) -> CloudWatchDataSource:
-    """Build CloudWatchDataSource from the DB config (app_config), env as fallback."""
+    """Build CloudWatchDataSource from the DB config (app_config), env as fallback.
+
+    Log groups/timeout come from ``cloudwatch_config`` and AWS credentials from
+    ``aws_config`` — both saved on the Config page. Either falls back to env
+    settings when the DB row is absent or incomplete.
+    """
     log_groups: list[str] | None = None
     query_timeout: int | None = None
+    aws_credentials: dict | None = None
     if db is not None:
         row = config_repo.get_app_config(db)
         cfg = (row.cloudwatch_config or {}) if row else None
         if cfg and cfg.get("log_groups"):
             log_groups = cfg["log_groups"]
             query_timeout = cfg.get("query_timeout")
-    return CloudWatchDataSource(log_groups=log_groups, query_timeout=query_timeout)
+        aws_cfg = (row.aws_config or {}) if row else None
+        if aws_cfg and aws_cfg.get("access_key_id") and aws_cfg.get("secret_access_key"):
+            aws_credentials = {
+                "access_key_id": aws_cfg.get("access_key_id"),
+                "secret_access_key": aws_cfg.get("secret_access_key"),
+                "region": aws_cfg.get("region"),
+            }
+    return CloudWatchDataSource(
+        log_groups=log_groups,
+        query_timeout=query_timeout,
+        aws_credentials=aws_credentials,
+    )
 
 
 def get_data_source(

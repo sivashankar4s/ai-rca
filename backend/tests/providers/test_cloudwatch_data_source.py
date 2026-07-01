@@ -258,6 +258,34 @@ class TestCloudWatchDataSource:
         with pytest.raises(RuntimeError, match="log groups to be configured"):
             ds.fetch_records(_START, _END)
 
+    def test_aws_credentials_override_env(self, monkeypatch) -> None:
+        monkeypatch.setattr(settings, "aws_region", "us-east-1")
+        monkeypatch.setattr(settings, "aws_access_key_id", "ENV_KEY")
+        monkeypatch.setattr(settings, "aws_secret_access_key", "ENV_SECRET")
+        with patch("backend.providers.data_source.cloudwatch.boto3.client") as mock_client:
+            CloudWatchDataSource(
+                aws_credentials={
+                    "access_key_id": "DB_KEY",
+                    "secret_access_key": "DB_SECRET",
+                    "region": "ap-south-1",
+                }
+            )
+        _, kwargs = mock_client.call_args
+        assert kwargs["region_name"] == "ap-south-1"
+        assert kwargs["aws_access_key_id"] == "DB_KEY"
+        assert kwargs["aws_secret_access_key"] == "DB_SECRET"
+
+    def test_falls_back_to_env_credentials_when_absent(self, monkeypatch) -> None:
+        monkeypatch.setattr(settings, "aws_region", "eu-west-1")
+        monkeypatch.setattr(settings, "aws_access_key_id", "ENV_KEY")
+        monkeypatch.setattr(settings, "aws_secret_access_key", "ENV_SECRET")
+        with patch("backend.providers.data_source.cloudwatch.boto3.client") as mock_client:
+            CloudWatchDataSource()
+        _, kwargs = mock_client.call_args
+        assert kwargs["region_name"] == "eu-west-1"
+        assert kwargs["aws_access_key_id"] == "ENV_KEY"
+        assert kwargs["aws_secret_access_key"] == "ENV_SECRET"
+
     def test_row_without_request_id_is_skipped(self) -> None:
         ds, client = _make_ds()
         bad = _row({"@timestamp": _TS, "@message": "[ERROR] no id present here"})

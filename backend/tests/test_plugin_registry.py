@@ -41,6 +41,51 @@ class TestGetDataSource:
         assert isinstance(ds, CloudWatchDataSource)
         assert isinstance(ds, DataSourceStrategy)
 
+    def test_cloudwatch_forwards_db_aws_credentials(self) -> None:
+        from types import SimpleNamespace
+        from unittest.mock import MagicMock
+
+        row = SimpleNamespace(
+            cloudwatch_config={"log_groups": ["/aws/lambda/x"], "query_timeout": 30},
+            aws_config={
+                "access_key_id": "DB_KEY",
+                "secret_access_key": "DB_SECRET",
+                "region": "ap-south-1",
+            },
+        )
+        with (
+            patch("backend.plugin_registry.config_repo.get_app_config", return_value=row),
+            patch("backend.providers.data_source.cloudwatch.boto3.client") as mock_client,
+        ):
+            ds = get_data_source("cloudwatch", db=MagicMock())
+        assert ds._log_groups == ["/aws/lambda/x"]
+        _, kwargs = mock_client.call_args
+        assert kwargs["aws_access_key_id"] == "DB_KEY"
+        assert kwargs["aws_secret_access_key"] == "DB_SECRET"
+        assert kwargs["region_name"] == "ap-south-1"
+
+    def test_cloudwatch_without_db_creds_falls_back(self) -> None:
+        from types import SimpleNamespace
+        from unittest.mock import MagicMock
+
+        row = SimpleNamespace(
+            cloudwatch_config={"log_groups": ["/aws/lambda/x"]},
+            aws_config=None,
+        )
+        with (
+            patch("backend.plugin_registry.config_repo.get_app_config", return_value=row),
+            patch("backend.providers.data_source.cloudwatch.boto3.client") as mock_client,
+            patch("backend.providers.data_source.cloudwatch.settings") as mock_settings,
+        ):
+            mock_settings.aws_region = "eu-west-1"
+            mock_settings.aws_access_key_id = "ENV_KEY"
+            mock_settings.aws_secret_access_key = "ENV_SECRET"
+            mock_settings.aws_session_token = ""
+            get_data_source("cloudwatch", db=MagicMock())
+        _, kwargs = mock_client.call_args
+        assert kwargs["aws_access_key_id"] == "ENV_KEY"
+        assert kwargs["region_name"] == "eu-west-1"
+
     def test_unknown_provider_raises_value_error(self) -> None:
         with pytest.raises(ValueError, match="Unknown data_source_provider"):
             get_data_source("mysql")

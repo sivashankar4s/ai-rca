@@ -198,16 +198,22 @@ class CloudWatchDataSource(DataSourceStrategy):
         self,
         log_groups: list[str] | None = None,
         query_timeout: int | None = None,
+        aws_credentials: dict | None = None,
     ) -> None:
         # ``None`` means "fall back to env settings" — the registry injects the
-        # effective config (DB app_config row, env fallback) when available.
+        # effective config (DB app_config row, env fallback) when available. AWS
+        # credentials come from the Config page (DB ``aws_config``) when present,
+        # falling back to env settings otherwise.
         self._log_groups = log_groups
         self._query_timeout = query_timeout
+        creds = aws_credentials or {}
         self._client = boto3.client(
             "logs",
-            region_name=settings.aws_region,
-            aws_access_key_id=settings.aws_access_key_id or None,
-            aws_secret_access_key=settings.aws_secret_access_key or None,
+            region_name=creds.get("region") or settings.aws_region,
+            aws_access_key_id=creds.get("access_key_id") or settings.aws_access_key_id or None,
+            aws_secret_access_key=(
+                creds.get("secret_access_key") or settings.aws_secret_access_key or None
+            ),
             aws_session_token=settings.aws_session_token or None,
         )
 
