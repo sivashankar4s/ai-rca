@@ -838,26 +838,54 @@ function _cwUpdateSummary() {
   }
 }
 
-function _renderCwLogGroups() {
+function _cwVisibleGroups() {
   const all = [...cwAllGroups].sort();
-  if (all.length === 0) {
+  const filter = cwLgSearch.value.trim().toLowerCase();
+  return filter ? all.filter(g => g.toLowerCase().includes(filter)) : all;
+}
+
+function _cwSyncSelectAll(visible) {
+  const selectAll = document.getElementById('cw-lg-selectall');
+  if (!selectAll) return;
+  const selected = visible.filter(g => cwSelectedGroups.has(g)).length;
+  selectAll.checked = visible.length > 0 && selected === visible.length;
+  selectAll.indeterminate = selected > 0 && selected < visible.length;
+}
+
+function _renderCwLogGroups() {
+  if (cwAllGroups.length === 0) {
     cwLgList.innerHTML = '';
     return;
   }
-  const filter = cwLgSearch.value.trim().toLowerCase();
-  const visible = filter ? all.filter(g => g.toLowerCase().includes(filter)) : all;
+  const filter = cwLgSearch.value.trim();
+  const visible = _cwVisibleGroups();
   if (visible.length === 0) {
     cwLgList.innerHTML = '<p class="cw-lg-empty">No log groups match the filter.</p>';
     return;
   }
-  cwLgList.innerHTML = visible.map((g, i) => {
+  const header =
+    `<label class="cw-lg-item cw-lg-selectall"><input type="checkbox" id="cw-lg-selectall" /> ` +
+    `Select all${filter ? ' (filtered)' : ''} (${visible.length})</label>`;
+  const items = visible.map((g, i) => {
     const checked = cwSelectedGroups.has(g) ? ' checked' : '';
     return `<label class="cw-lg-item"><input type="checkbox" data-lg="${_esc(g)}" id="cw-lg-${i}"${checked} /> ${_esc(g)}</label>`;
   }).join('');
-  cwLgList.querySelectorAll('input[type=checkbox]').forEach(cb => {
+  cwLgList.innerHTML = header + items;
+
+  const selectAll = document.getElementById('cw-lg-selectall');
+  _cwSyncSelectAll(visible);
+  selectAll.addEventListener('change', () => {
+    if (selectAll.checked) visible.forEach(g => cwSelectedGroups.add(g));
+    else visible.forEach(g => cwSelectedGroups.delete(g));
+    _renderCwLogGroups();
+    _cwUpdateSummary();
+  });
+
+  cwLgList.querySelectorAll('input[data-lg]').forEach(cb => {
     cb.addEventListener('change', () => {
       const name = cb.getAttribute('data-lg');
       if (cb.checked) cwSelectedGroups.add(name); else cwSelectedGroups.delete(name);
+      _cwSyncSelectAll(_cwVisibleGroups());
       _cwUpdateSummary();
     });
   });
