@@ -271,6 +271,36 @@ class TestPostAnalyze:
         assert resp.json()["record_count"] == 3
 
 
+class TestPostAnalyzeStream:
+    def test_streams_rca_chunks(self) -> None:
+        with patch(
+            "backend.routers.analysis.stream_rca", return_value=iter(["root ", "cause"])
+        ):
+            resp = _CLIENT.post(
+                "/api/analyze/stream",
+                json={"time_range": "1d", "records": [{"file_trace_id": "t1"}]},
+            )
+        assert resp.status_code == 200
+        assert resp.text == "root cause"
+
+    def test_empty_records_returns_400(self) -> None:
+        resp = _CLIENT.post("/api/analyze/stream", json={"time_range": "1d", "records": []})
+        assert resp.status_code == 400
+
+    def test_runtime_error_streamed_as_marker(self) -> None:
+        def _boom(_records):
+            raise RuntimeError("LLM_API_KEY is not configured.")
+            yield  # pragma: no cover
+
+        with patch("backend.routers.analysis.stream_rca", side_effect=_boom):
+            resp = _CLIENT.post(
+                "/api/analyze/stream",
+                json={"time_range": "1d", "records": [{"file_trace_id": "t1"}]},
+            )
+        assert resp.status_code == 200
+        assert "[analysis error:" in resp.text
+
+
 class TestGetProviders:
     """T010 — GET /api/providers returns real availability."""
 

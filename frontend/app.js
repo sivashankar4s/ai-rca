@@ -315,8 +315,13 @@ async function analyzeSelected() {
   const selected = allRecords.filter(r => selectedIds.has(r.file_trace_id));
   const logBackend = logBackendEl.value || null;
 
+  analyzeResult.style.display = 'block';
+  analyzeResult.innerHTML = '<strong>Analyzing…</strong><pre class="rca-output"></pre>';
+  const out = analyzeResult.querySelector('.rca-output');
+  const heading = analyzeResult.querySelector('strong');
+
   try {
-    const resp = await fetch('/api/analyze', {
+    const resp = await fetch('/api/analyze/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -331,15 +336,19 @@ async function analyzeSelected() {
       throw new Error(detail.detail ?? `Server error ${resp.status}`);
     }
 
-    const data = await resp.json();
-    analyzeResult.innerHTML = `
-      <strong>Analysis queued</strong> — ${data.record_count} record(s) via
-      <em>${data.log_backend_used}</em>.
-    `;
-    analyzeResult.style.display = 'block';
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let text = '';
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      text += decoder.decode(value, { stream: true });
+      out.textContent = text;
+      out.scrollTop = out.scrollHeight;
+    }
+    heading.textContent = 'Root cause analysis';
   } catch (err) {
     analyzeResult.innerHTML = `<span style="color:var(--danger)">Analyze failed: ${err.message}</span>`;
-    analyzeResult.style.display = 'block';
   } finally {
     analyzeBtn.disabled = false;
     analyzeSpinner.style.display = 'none';

@@ -3,6 +3,7 @@
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from backend.config import settings
@@ -19,6 +20,7 @@ from backend.models.schemas import (
 from backend.plugin_registry import describe_providers, get_data_source, get_log_backend
 from backend.repositories.failure_repo import upsert_failure_records
 from backend.repositories.project_repo import get_or_create_default_project
+from backend.services.rca_service import stream_rca
 
 router = APIRouter(prefix="/api", tags=["analysis"])
 
@@ -76,3 +78,18 @@ async def post_analyze(body: AnalyzeRequest) -> AnalyzeResponse:
     get_log_backend(body.log_backend)
     backend_id = body.log_backend or settings.log_analysis_provider
     return AnalyzeResponse(log_backend_used=backend_id, record_count=len(body.records))
+
+
+@router.post("/analyze/stream")
+async def post_analyze_stream(body: AnalyzeRequest) -> StreamingResponse:
+    """Stream a combined root-cause analysis of the selected failures token-by-token."""
+    if not body.records:
+        raise HTTPException(status_code=400, detail="No records selected for analysis.")
+
+    def generate():
+        try:
+            yield from stream_rca(body.records)
+        except RuntimeError as exc:
+            yield f"\n\n[analysis error: {exc}]"
+
+    return StreamingResponse(generate(), media_type="text/plain")

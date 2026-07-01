@@ -126,6 +126,13 @@ class TestGetLlm:
             result = get_llm()
         assert isinstance(result, NavifyLLMProvider)
 
+    def test_anthropic_provider_returns_navify_instance(self) -> None:
+        with patch("backend.plugin_registry.settings") as mock_settings:
+            mock_settings.llm_provider = "anthropic"
+            mock_settings.llm_base_url = "http://llm.example.com"
+            result = get_llm()
+        assert isinstance(result, NavifyLLMProvider)
+
     def test_unknown_provider_raises_value_error(self) -> None:
         with patch("backend.plugin_registry.settings") as mock_settings:
             mock_settings.llm_provider = "gpt-unknown"

@@ -107,7 +107,7 @@ def get_log_backend(override: str | None = None) -> LogAnalysisStrategy:
 def get_llm() -> LLMStrategy:
     """Return an LLMStrategy for the configured provider."""
     provider = settings.llm_provider
-    if provider in ("navify", "openai"):
+    if provider in ("navify", "openai", "anthropic"):
         from backend.providers.llm.navify import NavifyLLMProvider
 
         return NavifyLLMProvider()
