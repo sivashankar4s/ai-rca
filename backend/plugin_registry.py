@@ -46,6 +46,7 @@ def _build_cloudwatch_source(db: Session | None) -> CloudWatchDataSource:
             aws_credentials = {
                 "access_key_id": aws_cfg.get("access_key_id"),
                 "secret_access_key": aws_cfg.get("secret_access_key"),
+                "session_token": aws_cfg.get("session_token"),
                 "region": aws_cfg.get("region"),
             }
     return CloudWatchDataSource(

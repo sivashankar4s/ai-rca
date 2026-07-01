@@ -628,6 +628,7 @@ const MASK_SENTINEL = '••••••••';
 const awsStatusBadge       = document.getElementById('aws-status-badge');
 const awsKeyIdInput        = document.getElementById('config-aws-key-id');
 const awsSecretInput       = document.getElementById('config-aws-secret');
+const awsSessionTokenInput = document.getElementById('config-aws-session-token');
 const awsRegionInput       = document.getElementById('config-aws-region');
 const awsKeyIdError        = document.getElementById('config-aws-key-id-error');
 const awsSecretError       = document.getElementById('config-aws-secret-error');
@@ -685,9 +686,10 @@ async function loadConfigPage() {
     const data = await resp.json();
 
     const aws = data.aws;
-    awsKeyIdInput.value    = aws.access_key_id || '';
-    awsSecretInput.value   = aws.secret_access_key || '';
-    awsRegionInput.value   = aws.region || '';
+    awsKeyIdInput.value       = aws.access_key_id || '';
+    awsSecretInput.value      = aws.secret_access_key || '';
+    awsSessionTokenInput.value = aws.session_token || '';
+    awsRegionInput.value      = aws.region || '';
     _setBadge(awsStatusBadge, aws.configured);
 
     const cw = data.cloudwatch || { configured: false, log_groups: [] };
@@ -713,6 +715,7 @@ awsSaveForm.addEventListener('submit', async (e) => {
 
   const keyId  = awsKeyIdInput.value.trim();
   const secret = awsSecretInput.value;
+  const token  = awsSessionTokenInput.value;
   const region = awsRegionInput.value.trim();
 
   let valid = true;
@@ -730,7 +733,7 @@ awsSaveForm.addEventListener('submit', async (e) => {
     const resp = await fetch('/api/config/aws', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ access_key_id: keyId, secret_access_key: secret, region: region || undefined }),
+      body: JSON.stringify({ access_key_id: keyId, secret_access_key: secret, session_token: token || undefined, region: region || undefined }),
     });
     const data = await resp.json();
     if (resp.ok && data.success) {

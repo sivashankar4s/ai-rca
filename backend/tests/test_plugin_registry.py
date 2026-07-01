@@ -50,6 +50,7 @@ class TestGetDataSource:
             aws_config={
                 "access_key_id": "DB_KEY",
                 "secret_access_key": "DB_SECRET",
+                "session_token": "DB_TOKEN",
                 "region": "ap-south-1",
             },
         )
@@ -62,6 +63,7 @@ class TestGetDataSource:
         _, kwargs = mock_client.call_args
         assert kwargs["aws_access_key_id"] == "DB_KEY"
         assert kwargs["aws_secret_access_key"] == "DB_SECRET"
+        assert kwargs["aws_session_token"] == "DB_TOKEN"
         assert kwargs["region_name"] == "ap-south-1"
 
     def test_cloudwatch_without_db_creds_falls_back(self) -> None:

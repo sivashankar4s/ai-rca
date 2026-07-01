@@ -207,14 +207,25 @@ class CloudWatchDataSource(DataSourceStrategy):
         self._log_groups = log_groups
         self._query_timeout = query_timeout
         creds = aws_credentials or {}
+        # Resolve credentials from a single source: DB config when present, else
+        # env. Never mix (e.g. DB keys + a leftover env session token) — that
+        # yields UnrecognizedClientException.
+        if creds.get("access_key_id"):
+            region = creds.get("region") or settings.aws_region
+            access_key = creds.get("access_key_id")
+            secret_key = creds.get("secret_access_key")
+            session_token = creds.get("session_token") or None
+        else:
+            region = settings.aws_region
+            access_key = settings.aws_access_key_id or None
+            secret_key = settings.aws_secret_access_key or None
+            session_token = settings.aws_session_token or None
         self._client = boto3.client(
             "logs",
-            region_name=creds.get("region") or settings.aws_region,
-            aws_access_key_id=creds.get("access_key_id") or settings.aws_access_key_id or None,
-            aws_secret_access_key=(
-                creds.get("secret_access_key") or settings.aws_secret_access_key or None
-            ),
-            aws_session_token=settings.aws_session_token or None,
+            region_name=region,
+            aws_access_key_id=access_key,
+            aws_secret_access_key=secret_key,
+            aws_session_token=session_token,
         )
 
     @property

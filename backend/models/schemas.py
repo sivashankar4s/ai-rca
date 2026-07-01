@@ -152,6 +152,7 @@ class AwsConfigStatus(BaseModel):
     configured: bool
     access_key_id: str | None = None
     secret_access_key: str | None = None
+    session_token: str | None = None
     region: str | None = None
 
 
@@ -177,6 +178,7 @@ class AppConfigRead(BaseModel):
 class AwsConfigUpdate(BaseModel):
     access_key_id: str
     secret_access_key: str
+    session_token: str | None = None
     region: str | None = None
 
     @field_validator("access_key_id")

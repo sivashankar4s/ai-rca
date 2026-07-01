@@ -187,6 +187,11 @@
             <span class="config-field-error hidden" id="config-aws-secret-error"></span>
           </div>
           <div class="config-field">
+            <label for="config-aws-session-token">Session Token <span class="optional">(optional — required for temporary ASIA… credentials)</span></label>
+            <input type="password" id="config-aws-session-token" name="session_token"
+                   placeholder="For temporary STS credentials" autocomplete="new-password" />
+          </div>
+          <div class="config-field">
             <label for="config-aws-region">Region <span class="optional">(optional)</span></label>
             <input type="text" id="config-aws-region" name="region"
                    placeholder="us-east-1" autocomplete="off" />

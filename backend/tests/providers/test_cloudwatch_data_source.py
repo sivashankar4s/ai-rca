@@ -275,7 +275,29 @@ class TestCloudWatchDataSource:
         assert kwargs["aws_access_key_id"] == "DB_KEY"
         assert kwargs["aws_secret_access_key"] == "DB_SECRET"
 
+    def test_db_credentials_do_not_inherit_env_session_token(self, monkeypatch) -> None:
+        monkeypatch.setattr(settings, "aws_session_token", "STALE_ENV_TOKEN")
+        with patch("backend.providers.data_source.cloudwatch.boto3.client") as mock_client:
+            CloudWatchDataSource(
+                aws_credentials={"access_key_id": "DB_KEY", "secret_access_key": "DB_SECRET"}
+            )
+        _, kwargs = mock_client.call_args
+        assert kwargs["aws_session_token"] is None
+
+    def test_db_session_token_is_used(self) -> None:
+        with patch("backend.providers.data_source.cloudwatch.boto3.client") as mock_client:
+            CloudWatchDataSource(
+                aws_credentials={
+                    "access_key_id": "DB_KEY",
+                    "secret_access_key": "DB_SECRET",
+                    "session_token": "DB_TOKEN",
+                }
+            )
+        _, kwargs = mock_client.call_args
+        assert kwargs["aws_session_token"] == "DB_TOKEN"
+
     def test_falls_back_to_env_credentials_when_absent(self, monkeypatch) -> None:
+        monkeypatch.setattr(settings, "aws_session_token", "ENV_TOKEN")
         monkeypatch.setattr(settings, "aws_region", "eu-west-1")
         monkeypatch.setattr(settings, "aws_access_key_id", "ENV_KEY")
         monkeypatch.setattr(settings, "aws_secret_access_key", "ENV_SECRET")
@@ -285,6 +307,7 @@ class TestCloudWatchDataSource:
         assert kwargs["region_name"] == "eu-west-1"
         assert kwargs["aws_access_key_id"] == "ENV_KEY"
         assert kwargs["aws_secret_access_key"] == "ENV_SECRET"
+        assert kwargs["aws_session_token"] == "ENV_TOKEN"
 
     def test_list_log_groups_returns_names_across_pages(self) -> None:
         ds, client = _make_ds()

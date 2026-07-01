@@ -31,21 +31,31 @@ def _build_aws_status(row_cfg: dict | None, *, db_row_exists: bool) -> AwsConfig
         cfg = row_cfg or {}
         key_id: str = cfg.get("access_key_id") or ""
         secret: str = cfg.get("secret_access_key") or ""
+        token: str = cfg.get("session_token") or ""
         region: str | None = cfg.get("region") or None
         if not key_id or not secret:
             return AwsConfigStatus(configured=False, access_key_id=key_id or None, region=region)
         return AwsConfigStatus(
-            configured=True, access_key_id=key_id, secret_access_key=MASK_SENTINEL, region=region
+            configured=True,
+            access_key_id=key_id,
+            secret_access_key=MASK_SENTINEL,
+            session_token=MASK_SENTINEL if token else None,
+            region=region,
         )
 
     # No DB row — fall back to environment variables
     key_id = settings.aws_access_key_id or ""
     secret = settings.aws_secret_access_key or ""
+    token = settings.aws_session_token or ""
     region = settings.aws_region or None
     if key_id and secret:
         logger.warning("AWS config falling back to environment variables")
         return AwsConfigStatus(
-            configured=True, access_key_id=key_id, secret_access_key=MASK_SENTINEL, region=region
+            configured=True,
+            access_key_id=key_id,
+            secret_access_key=MASK_SENTINEL,
+            session_token=MASK_SENTINEL if token else None,
+            region=region,
         )
     return AwsConfigStatus(configured=False)
 

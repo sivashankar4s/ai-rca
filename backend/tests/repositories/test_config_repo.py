@@ -73,6 +73,41 @@ class TestUpsertAwsConfig:
         assert row is not None
         assert row.aws_config.get("secret_access_key") is None
 
+    def test_stores_session_token(self, db_session: Session) -> None:
+        from backend.models.schemas import AwsConfigUpdate
+
+        data = AwsConfigUpdate(
+            access_key_id="ASIATEST", secret_access_key="SK", session_token="TOKEN123"
+        )
+        config_repo.upsert_aws_config(db_session, data)
+        row = config_repo.get_app_config(db_session)
+        assert row is not None
+        assert row.aws_config["session_token"] == "TOKEN123"
+
+    def test_session_token_none_when_absent(self, db_session: Session) -> None:
+        from backend.models.schemas import AwsConfigUpdate
+
+        data = AwsConfigUpdate(access_key_id="AK", secret_access_key="SK")
+        config_repo.upsert_aws_config(db_session, data)
+        row = config_repo.get_app_config(db_session)
+        assert row is not None
+        assert row.aws_config.get("session_token") is None
+
+    def test_mask_sentinel_preserves_existing_session_token(self, db_session: Session) -> None:
+        from backend.models.schemas import MASK_SENTINEL, AwsConfigUpdate
+
+        config_repo._upsert_app_config(
+            db_session,
+            aws_config={"access_key_id": "AK", "secret_access_key": "s", "session_token": "orig"},
+        )
+        data = AwsConfigUpdate(
+            access_key_id="AK", secret_access_key=MASK_SENTINEL, session_token=MASK_SENTINEL
+        )
+        config_repo.upsert_aws_config(db_session, data)
+        row = config_repo.get_app_config(db_session)
+        assert row is not None
+        assert row.aws_config["session_token"] == "orig"
+
     def test_stores_region(self, db_session: Session) -> None:
         from backend.models.schemas import AwsConfigUpdate
 

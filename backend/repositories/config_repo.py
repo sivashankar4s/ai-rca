@@ -47,9 +47,16 @@ def upsert_aws_config(db: Session, data: AwsConfigUpdate) -> AppConfig:
     else:
         secret = data.secret_access_key if data.secret_access_key else None
 
+    token: str | None
+    if data.session_token == MASK_SENTINEL:
+        token = existing_cfg.get("session_token")
+    else:
+        token = data.session_token if data.session_token else None
+
     aws_cfg: dict = {
         "access_key_id": data.access_key_id,
         "secret_access_key": secret,
+        "session_token": token,
     }
     if data.region is not None:
         aws_cfg["region"] = data.region

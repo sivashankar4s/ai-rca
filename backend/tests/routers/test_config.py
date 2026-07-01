@@ -53,6 +53,20 @@ class TestGetConfig:
         assert body["aws"]["secret_access_key"] == MASK_SENTINEL
         assert body["aws"]["access_key_id"] == "AK"
 
+    def test_aws_session_token_masked_when_present(self) -> None:
+        row = _make_row(
+            aws={"access_key_id": "AK", "secret_access_key": "s", "session_token": "tok"}
+        )
+        with patch("backend.routers.config.config_repo.get_app_config", return_value=row):
+            resp = _CLIENT.get("/api/config")
+        assert resp.json()["aws"]["session_token"] == MASK_SENTINEL
+
+    def test_aws_session_token_null_when_absent(self) -> None:
+        row = _make_row(aws={"access_key_id": "AK", "secret_access_key": "s"})
+        with patch("backend.routers.config.config_repo.get_app_config", return_value=row):
+            resp = _CLIENT.get("/api/config")
+        assert resp.json()["aws"]["session_token"] is None
+
     def test_github_token_is_masked_when_configured(self) -> None:
         row = _make_row(github={"repo": "o/r", "token": "ghp_real"})
         with patch("backend.routers.config.config_repo.get_app_config", return_value=row):
