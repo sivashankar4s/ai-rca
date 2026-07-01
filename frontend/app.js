@@ -641,6 +641,10 @@ const cwLogGroupsError     = document.getElementById('config-cw-log-groups-error
 const cwTimeoutError       = document.getElementById('config-cw-timeout-error');
 const cwSaveForm           = document.getElementById('config-cloudwatch-form');
 const cwFeedback           = document.getElementById('config-cw-feedback');
+const cwDiscoverType       = document.getElementById('config-cw-discover-type');
+const cwDiscoverPrefix     = document.getElementById('config-cw-discover-prefix');
+const cwDiscoverBtn        = document.getElementById('config-cw-discover-btn');
+const cwDiscoverResults    = document.getElementById('config-cw-discover-results');
 
 const githubMcpStatusBadge = document.getElementById('github-mcp-status-badge');
 const githubRepoInput      = document.getElementById('config-github-repo');
@@ -782,6 +786,61 @@ cwSaveForm.addEventListener('submit', async (e) => {
     }
   } catch (err) {
     _showFeedback(cwFeedback, `Error: ${err.message}`, true);
+  }
+});
+
+// --- CloudWatch log-group discovery (optional helper) -----------------------
+
+cwDiscoverType.addEventListener('change', () => {
+  cwDiscoverPrefix.value = cwDiscoverType.value;
+});
+
+function _addLogGroups(names) {
+  const existing = cwLogGroupsInput.value.split('\n').map(s => s.trim()).filter(Boolean);
+  const merged = existing.slice();
+  for (const name of names) {
+    if (!merged.includes(name)) merged.push(name);
+  }
+  cwLogGroupsInput.value = merged.join('\n');
+  _clearFieldError(cwLogGroupsInput, cwLogGroupsError);
+}
+
+function _renderDiscoverResults(groups) {
+  cwDiscoverResults.classList.remove('hidden');
+  if (groups.length === 0) {
+    cwDiscoverResults.innerHTML = '<p class="cw-discover-empty">No log groups found for that prefix.</p>';
+    return;
+  }
+  const items = groups.map((g, i) =>
+    `<label class="cw-discover-item"><input type="checkbox" value="${g}" id="cw-dg-${i}" /> ${g}</label>`
+  ).join('');
+  cwDiscoverResults.innerHTML =
+    `<div class="cw-discover-list">${items}</div>` +
+    '<button type="button" class="btn-sm" id="config-cw-add-selected">Add selected</button>';
+  document.getElementById('config-cw-add-selected').addEventListener('click', () => {
+    const checked = [...cwDiscoverResults.querySelectorAll('input[type=checkbox]:checked')].map(c => c.value);
+    if (checked.length) _addLogGroups(checked);
+  });
+}
+
+cwDiscoverBtn.addEventListener('click', async () => {
+  cwFeedback.classList.add('hidden');
+  cwDiscoverResults.classList.add('hidden');
+  cwDiscoverBtn.disabled = true;
+  const prefix = cwDiscoverPrefix.value.trim();
+  const url = '/api/config/cloudwatch/log-groups' + (prefix ? `?prefix=${encodeURIComponent(prefix)}` : '');
+  try {
+    const resp = await fetch(url);
+    const data = await resp.json();
+    if (resp.ok) {
+      _renderDiscoverResults(data.log_groups || []);
+    } else {
+      _showFeedback(cwFeedback, data.detail ? JSON.stringify(data.detail) : 'Failed to discover log groups.', true);
+    }
+  } catch (err) {
+    _showFeedback(cwFeedback, `Error: ${err.message}`, true);
+  } finally {
+    cwDiscoverBtn.disabled = false;
   }
 });
 

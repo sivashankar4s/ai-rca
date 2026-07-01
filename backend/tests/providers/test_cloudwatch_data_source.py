@@ -286,6 +286,34 @@ class TestCloudWatchDataSource:
         assert kwargs["aws_access_key_id"] == "ENV_KEY"
         assert kwargs["aws_secret_access_key"] == "ENV_SECRET"
 
+    def test_list_log_groups_returns_names_across_pages(self) -> None:
+        ds, client = _make_ds()
+        client.describe_log_groups.side_effect = [
+            {"logGroups": [{"logGroupName": "/aws/lambda/a"}], "nextToken": "t1"},
+            {"logGroups": [{"logGroupName": "/aws/lambda/b"}]},
+        ]
+        assert ds.list_log_groups("/aws/lambda/") == ["/aws/lambda/a", "/aws/lambda/b"]
+
+    def test_list_log_groups_forwards_prefix(self) -> None:
+        ds, client = _make_ds()
+        client.describe_log_groups.return_value = {"logGroups": []}
+        ds.list_log_groups("/aws-glue/")
+        _, kwargs = client.describe_log_groups.call_args
+        assert kwargs["logGroupNamePrefix"] == "/aws-glue/"
+
+    def test_list_log_groups_omits_prefix_when_absent(self) -> None:
+        ds, client = _make_ds()
+        client.describe_log_groups.return_value = {"logGroups": []}
+        ds.list_log_groups()
+        _, kwargs = client.describe_log_groups.call_args
+        assert "logGroupNamePrefix" not in kwargs
+
+    def test_list_log_groups_wraps_client_error(self) -> None:
+        ds, client = _make_ds()
+        client.describe_log_groups.side_effect = BotoCoreError()
+        with pytest.raises(RuntimeError, match="log group discovery failed"):
+            ds.list_log_groups()
+
     def test_row_without_request_id_is_skipped(self) -> None:
         ds, client = _make_ds()
         bad = _row({"@timestamp": _TS, "@message": "[ERROR] no id present here"})

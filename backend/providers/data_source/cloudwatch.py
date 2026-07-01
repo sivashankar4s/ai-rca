@@ -227,6 +227,24 @@ class CloudWatchDataSource(DataSourceStrategy):
             return self._query_timeout
         return settings.cloudwatch_query_timeout
 
+    def list_log_groups(self, prefix: str | None = None) -> list[str]:
+        """Return log group names, optionally filtered by name prefix (for the config picker)."""
+        params: dict = {"limit": 50}
+        if prefix:
+            params["logGroupNamePrefix"] = prefix
+        names: list[str] = []
+        try:
+            while True:
+                resp = self._client.describe_log_groups(**params)
+                names.extend(g["logGroupName"] for g in resp.get("logGroups", []))
+                token = resp.get("nextToken")
+                if not token:
+                    break
+                params["nextToken"] = token
+        except (BotoCoreError, ClientError) as exc:
+            raise RuntimeError(f"CloudWatch log group discovery failed: {exc}") from exc
+        return names
+
     def _build_query(self, component: str | None) -> str:
         query = (
             "fields @timestamp, @message, @requestId, @log, @logStream, @type, "

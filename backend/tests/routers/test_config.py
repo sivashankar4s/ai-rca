@@ -1,7 +1,7 @@
 """Router tests for /api/config endpoints — TestClient with mocked config_repo."""
 
 from datetime import UTC, datetime
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -130,6 +130,35 @@ class TestGetConfig:
         assert body["github_mcp"]["configured"] is True
         assert body["github_mcp"]["repo"] == "owner/repo"
         assert body["github_mcp"]["token"] == MASK_SENTINEL
+
+
+class TestDiscoverCloudWatchLogGroups:
+    def test_returns_log_groups_with_prefix(self) -> None:
+        mock_ds = MagicMock()
+        mock_ds.list_log_groups.return_value = ["/aws/lambda/a", "/aws/lambda/b"]
+        with patch("backend.routers.config.get_data_source", return_value=mock_ds):
+            resp = _CLIENT.get("/api/config/cloudwatch/log-groups?prefix=/aws/lambda/")
+        assert resp.status_code == 200
+        assert resp.json()["log_groups"] == ["/aws/lambda/a", "/aws/lambda/b"]
+        mock_ds.list_log_groups.assert_called_once_with("/aws/lambda/")
+
+    def test_no_prefix_passes_none(self) -> None:
+        mock_ds = MagicMock()
+        mock_ds.list_log_groups.return_value = []
+        with patch("backend.routers.config.get_data_source", return_value=mock_ds):
+            resp = _CLIENT.get("/api/config/cloudwatch/log-groups")
+        assert resp.status_code == 200
+        mock_ds.list_log_groups.assert_called_once_with(None)
+
+    def test_runtime_error_returns_400(self) -> None:
+        mock_ds = MagicMock()
+        mock_ds.list_log_groups.side_effect = RuntimeError(
+            "CloudWatch log group discovery failed: boom"
+        )
+        with patch("backend.routers.config.get_data_source", return_value=mock_ds):
+            resp = _CLIENT.get("/api/config/cloudwatch/log-groups")
+        assert resp.status_code == 400
+        assert "discovery failed" in resp.json()["detail"]
 
 
 class TestPatchAwsConfig:

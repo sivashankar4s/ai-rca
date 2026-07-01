@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ..config import settings
@@ -12,10 +12,12 @@ from ..models.schemas import (
     AwsConfigUpdate,
     CloudWatchConfigStatus,
     CloudWatchConfigUpdate,
+    CloudWatchLogGroupsResponse,
     ConfigSaveResult,
     GithubMcpConfigStatus,
     GithubMcpConfigUpdate,
 )
+from ..plugin_registry import get_data_source
 from ..repositories import config_repo
 
 logger = logging.getLogger(__name__)
@@ -132,6 +134,19 @@ async def patch_github_mcp_config(
         message="GitHub MCP configuration saved.",
         updated_at=row.updated_at,
     )
+
+
+@router.get("/cloudwatch/log-groups", response_model=CloudWatchLogGroupsResponse)
+async def discover_cloudwatch_log_groups(
+    prefix: str | None = None, db: Session = Depends(get_db)
+) -> CloudWatchLogGroupsResponse:
+    """List AWS log groups (optionally by name prefix) for the config picker."""
+    ds = get_data_source("cloudwatch", db=db)
+    try:
+        groups = ds.list_log_groups(prefix)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return CloudWatchLogGroupsResponse(log_groups=groups)
 
 
 @router.patch("/cloudwatch", response_model=ConfigSaveResult)

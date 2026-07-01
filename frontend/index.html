@@ -213,6 +213,21 @@
             <span class="config-field-error hidden" id="config-cw-log-groups-error"></span>
           </div>
           <div class="config-field">
+            <label for="config-cw-discover-type">Discover from AWS <span class="optional">(optional)</span></label>
+            <div class="cw-discover-row">
+              <select id="config-cw-discover-type">
+                <option value="/aws/lambda/">Lambda</option>
+                <option value="/aws-glue/">Glue</option>
+                <option value="/aws/eks/">EKS</option>
+                <option value="/aws/containerinsights/">Container Insights</option>
+                <option value="">Custom / all</option>
+              </select>
+              <input type="text" id="config-cw-discover-prefix" placeholder="/aws/lambda/" autocomplete="off" />
+              <button type="button" class="btn-sm" id="config-cw-discover-btn">Discover</button>
+            </div>
+            <div class="cw-discover-results hidden" id="config-cw-discover-results"></div>
+          </div>
+          <div class="config-field">
             <label for="config-cw-timeout">Query Timeout (seconds) <span class="optional">(optional)</span></label>
             <input type="text" id="config-cw-timeout" name="query_timeout"
                    placeholder="60" inputmode="numeric" autocomplete="off" />

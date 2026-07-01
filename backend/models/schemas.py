@@ -238,6 +238,12 @@ class CloudWatchConfigUpdate(BaseModel):
         return v
 
 
+class CloudWatchLogGroupsResponse(BaseModel):
+    """Log groups discovered from AWS for the CloudWatch config picker."""
+
+    log_groups: list[str]
+
+
 class ConfigSaveResult(BaseModel):
     success: bool
     message: str
