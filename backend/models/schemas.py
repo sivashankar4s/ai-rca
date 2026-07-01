@@ -169,10 +169,17 @@ class CloudWatchConfigStatus(BaseModel):
     query_timeout: int | None = None
 
 
+class AthenaConfigStatus(BaseModel):
+    configured: bool
+    database: str | None = None
+    table: str | None = None
+
+
 class AppConfigRead(BaseModel):
     aws: AwsConfigStatus
     github_mcp: GithubMcpConfigStatus
     cloudwatch: CloudWatchConfigStatus
+    athena: AthenaConfigStatus
 
 
 class AwsConfigUpdate(BaseModel):
@@ -238,6 +245,18 @@ class CloudWatchConfigUpdate(BaseModel):
         if v is not None and v <= 0:
             raise ValueError("query_timeout must be a positive number of seconds")
         return v
+
+
+class AthenaConfigUpdate(BaseModel):
+    database: str
+    table: str
+
+    @field_validator("database", "table")
+    @classmethod
+    def _nonempty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("must not be empty")
+        return v.strip()
 
 
 class CloudWatchLogGroupsResponse(BaseModel):

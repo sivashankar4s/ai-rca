@@ -24,6 +24,16 @@ class TestGetDataSource:
         assert isinstance(ds, AthenaDataSource)
         assert isinstance(ds, DataSourceStrategy)
 
+    def test_athena_forwards_db_config(self) -> None:
+        from types import SimpleNamespace
+        from unittest.mock import MagicMock
+
+        row = SimpleNamespace(athena_config={"database": "dbx", "table": "tbx"})
+        with patch("backend.plugin_registry.config_repo.get_app_config", return_value=row):
+            ds = get_data_source("athena", db=MagicMock())
+        assert ds._database == "dbx"
+        assert ds._table == "tbx"
+
     def test_none_uses_settings_provider(self) -> None:
         with patch("backend.plugin_registry.settings") as mock_settings:
             mock_settings.data_source_provider = "local_file"

@@ -181,3 +181,25 @@ class TestUpsertCloudwatchConfig:
         row = config_repo.get_app_config(db_session)
         assert row is not None
         assert row.cloudwatch_config["query_timeout"] == 120
+
+
+class TestUpsertAthenaConfig:
+    def test_stores_database_and_table(self, db_session: Session) -> None:
+        from backend.models.schemas import AthenaConfigUpdate
+
+        data = AthenaConfigUpdate(database="mydb", table="mytable")
+        config_repo.upsert_athena_config(db_session, data)
+        row = config_repo.get_app_config(db_session)
+        assert row is not None
+        assert row.athena_config["database"] == "mydb"
+        assert row.athena_config["table"] == "mytable"
+
+    def test_trims_whitespace(self, db_session: Session) -> None:
+        from backend.models.schemas import AthenaConfigUpdate
+
+        data = AthenaConfigUpdate(database="  mydb  ", table="  mytable  ")
+        config_repo.upsert_athena_config(db_session, data)
+        row = config_repo.get_app_config(db_session)
+        assert row is not None
+        assert row.athena_config["database"] == "mydb"
+        assert row.athena_config["table"] == "mytable"

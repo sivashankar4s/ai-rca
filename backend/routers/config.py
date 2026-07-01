@@ -8,6 +8,8 @@ from ..db.session import get_db
 from ..models.schemas import (
     MASK_SENTINEL,
     AppConfigRead,
+    AthenaConfigStatus,
+    AthenaConfigUpdate,
     AwsConfigStatus,
     AwsConfigUpdate,
     CloudWatchConfigStatus,
@@ -106,6 +108,27 @@ def _build_cloudwatch_status(
     return CloudWatchConfigStatus(configured=False)
 
 
+def _build_athena_status(row_cfg: dict | None, *, db_row_exists: bool) -> AthenaConfigStatus:
+    """Build AthenaConfigStatus: use DB values when a row exists, env-vars only as fallback."""
+    if db_row_exists:
+        cfg = row_cfg or {}
+        database: str = cfg.get("database") or ""
+        table: str = cfg.get("table") or ""
+        return AthenaConfigStatus(
+            configured=bool(database and table),
+            database=database or None,
+            table=table or None,
+        )
+
+    # No DB row — fall back to environment variables
+    database = settings.athena_database or ""
+    table = settings.athena_table or ""
+    if database and table:
+        logger.warning("Athena config falling back to environment variables")
+        return AthenaConfigStatus(configured=True, database=database, table=table)
+    return AthenaConfigStatus(configured=False)
+
+
 @router.get("", response_model=AppConfigRead)
 async def get_config(db: Session = Depends(get_db)) -> AppConfigRead:
     row = config_repo.get_app_config(db)
@@ -113,10 +136,12 @@ async def get_config(db: Session = Depends(get_db)) -> AppConfigRead:
     aws_cfg = row.aws_config if row else None
     github_cfg = row.github_mcp_config if row else None
     cloudwatch_cfg = row.cloudwatch_config if row else None
+    athena_cfg = row.athena_config if row else None
     return AppConfigRead(
         aws=_build_aws_status(aws_cfg, db_row_exists=db_row_exists),
         github_mcp=_build_github_mcp_status(github_cfg, db_row_exists=db_row_exists),
         cloudwatch=_build_cloudwatch_status(cloudwatch_cfg, db_row_exists=db_row_exists),
+        athena=_build_athena_status(athena_cfg, db_row_exists=db_row_exists),
     )
 
 
@@ -168,5 +193,18 @@ async def patch_cloudwatch_config(
     return ConfigSaveResult(
         success=True,
         message="CloudWatch configuration saved.",
+        updated_at=row.updated_at,
+    )
+
+
+@router.patch("/athena", response_model=ConfigSaveResult)
+async def patch_athena_config(
+    data: AthenaConfigUpdate, db: Session = Depends(get_db)
+) -> ConfigSaveResult:
+    row = config_repo.upsert_athena_config(db, data)
+    db.commit()
+    return ConfigSaveResult(
+        success=True,
+        message="Athena configuration saved.",
         updated_at=row.updated_at,
     )

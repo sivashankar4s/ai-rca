@@ -25,6 +25,19 @@ _LOG_BACKEND_CATALOGUE: list[tuple[str, str]] = [
 ]
 
 
+def _build_athena_source(db: Session | None) -> AthenaDataSource:
+    """Build AthenaDataSource from the DB config (app_config), env as fallback."""
+    database: str | None = None
+    table: str | None = None
+    if db is not None:
+        row = config_repo.get_app_config(db)
+        cfg = (row.athena_config or {}) if row else None
+        if cfg and cfg.get("database") and cfg.get("table"):
+            database = cfg["database"]
+            table = cfg["table"]
+    return AthenaDataSource(database=database, table=table)
+
+
 def _build_cloudwatch_source(db: Session | None) -> CloudWatchDataSource:
     """Build CloudWatchDataSource from the DB config (app_config), env as fallback.
 
@@ -61,15 +74,15 @@ def get_data_source(
 ) -> DataSourceStrategy:
     """Return a DataSourceStrategy for the given provider name (defaults to settings).
 
-    ``db`` is used only by the CloudWatch source to read log groups from the
-    config page (app_config), falling back to env settings when absent.
+    ``db`` is used by the CloudWatch and Athena sources to read their config
+    from the config page (app_config), falling back to env settings when absent.
     """
     if provider is None:
         provider = settings.data_source_provider
     if provider == "local_file":
         return LocalFileDataSource(settings.local_data_file)
     if provider == "athena":
-        return AthenaDataSource()
+        return _build_athena_source(db)
     if provider == "postgres":
         return PostgresDataSource()
     if provider == "cloudwatch":

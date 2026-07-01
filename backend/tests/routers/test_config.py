@@ -38,6 +38,8 @@ class TestGetConfig:
             mock_settings.aws_region = ""
             mock_settings.github_repo = ""
             mock_settings.github_token = ""
+            mock_settings.athena_database = ""
+            mock_settings.athena_table = ""
             resp = _CLIENT.get("/api/config")
         assert resp.status_code == 200
         body = resp.json()
@@ -86,6 +88,8 @@ class TestGetConfig:
             mock_settings.aws_region = ""
             mock_settings.github_repo = ""
             mock_settings.github_token = ""
+            mock_settings.athena_database = ""
+            mock_settings.athena_table = ""
             resp = _CLIENT.get("/api/config")
         body = resp.json()
         assert body["aws"]["secret_access_key"] is None
@@ -109,6 +113,8 @@ class TestGetConfig:
             mock_settings.aws_region = "us-east-1"
             mock_settings.github_repo = ""
             mock_settings.github_token = ""
+            mock_settings.athena_database = ""
+            mock_settings.athena_table = ""
             resp = _CLIENT.get("/api/config")
         body = resp.json()
         assert body["aws"]["configured"] is True
@@ -125,6 +131,8 @@ class TestGetConfig:
             mock_settings.aws_region = "us-east-1"
             mock_settings.github_repo = ""
             mock_settings.github_token = ""
+            mock_settings.athena_database = ""
+            mock_settings.athena_table = ""
             resp = _CLIENT.get("/api/config")
         body = resp.json()
         assert body["aws"]["configured"] is False
@@ -139,6 +147,8 @@ class TestGetConfig:
             mock_settings.aws_region = ""
             mock_settings.github_repo = "owner/repo"
             mock_settings.github_token = "ghp_envtoken"
+            mock_settings.athena_database = ""
+            mock_settings.athena_table = ""
             resp = _CLIENT.get("/api/config")
         body = resp.json()
         assert body["github_mcp"]["configured"] is True
@@ -173,6 +183,38 @@ class TestDiscoverCloudWatchLogGroups:
             resp = _CLIENT.get("/api/config/cloudwatch/log-groups")
         assert resp.status_code == 400
         assert "discovery failed" in resp.json()["detail"]
+
+
+class TestAthenaConfig:
+    def test_configured_from_db_row(self) -> None:
+        row = _make_row()
+        row.athena_config = {"database": "mydb", "table": "mytable"}
+        with patch("backend.routers.config.config_repo.get_app_config", return_value=row):
+            resp = _CLIENT.get("/api/config")
+        body = resp.json()
+        assert body["athena"]["configured"] is True
+        assert body["athena"]["database"] == "mydb"
+        assert body["athena"]["table"] == "mytable"
+
+    def test_not_configured_when_incomplete(self) -> None:
+        row = _make_row()
+        row.athena_config = {"database": "mydb"}
+        with patch("backend.routers.config.config_repo.get_app_config", return_value=row):
+            resp = _CLIENT.get("/api/config")
+        assert resp.json()["athena"]["configured"] is False
+
+    def test_patch_saves_config(self) -> None:
+        row = _make_row(updated_at=_NOW)
+        with patch("backend.routers.config.config_repo.upsert_athena_config", return_value=row):
+            resp = _CLIENT.patch(
+                "/api/config/athena", json={"database": "mydb", "table": "mytable"}
+            )
+        assert resp.status_code == 200
+        assert resp.json()["success"] is True
+
+    def test_patch_422_when_database_empty(self) -> None:
+        resp = _CLIENT.patch("/api/config/athena", json={"database": "", "table": "t"})
+        assert resp.status_code == 422
 
 
 class TestPatchAwsConfig:

@@ -68,7 +68,13 @@ def _rows_to_records(rows: list[dict]) -> list[FailureRecord]:
 class AthenaDataSource(DataSourceStrategy):
     """Queries FAILED records from Amazon Athena for a given datetime window."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self, database: str | None = None, table: str | None = None
+    ) -> None:
+        # ``None`` means "fall back to env settings" — the registry injects the
+        # effective config (DB app_config row, env fallback) when available.
+        self._database = database or settings.athena_database
+        self._table = table or settings.athena_table
         self._client = boto3.client(
             "athena",
             region_name=settings.aws_region,
@@ -89,7 +95,7 @@ class AthenaDataSource(DataSourceStrategy):
             f"SELECT application_name, component_name, custom_key1, custom_key2,"
             f" custom_key3, event_created_timestamp, event_inserted_timestamp,"
             f" organization, status, event_data"
-            f" FROM {settings.athena_database}.{settings.athena_table}"
+            f" FROM {self._database}.{self._table}"
             f" WHERE status = 'FAILED'"
             f" AND event_created_timestamp"
             f" BETWEEN TIMESTAMP '{start_s}' AND TIMESTAMP '{end_s}'"

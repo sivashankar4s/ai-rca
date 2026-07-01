@@ -477,6 +477,9 @@ a.github-pr-title:hover { color: var(--accent); text-decoration: underline; }
 .cw-discover-item { color: var(--text); font-size: 12px; font-weight: 400; display: flex; gap: 6px; align-items: center; }
 .cw-discover-empty { color: var(--muted); font-size: 12px; margin: 0; }
 
+.config-note { color: var(--muted); font-size: 12px; margin: 0 0 12px; line-height: 1.5; }
+.config-note code { background: var(--surface); border-radius: 3px; padding: 1px 4px; }
+
 /* ── Responsive ────────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   header { padding: 12px 16px; }

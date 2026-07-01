@@ -655,6 +655,13 @@ const githubRepoError      = document.getElementById('config-github-repo-error')
 const githubTokenError     = document.getElementById('config-github-token-error');
 const githubMcpSaveForm    = document.getElementById('config-github-mcp-form');
 const githubMcpFeedback    = document.getElementById('config-github-mcp-feedback');
+const athenaStatusBadge    = document.getElementById('athena-status-badge');
+const athenaDatabaseInput  = document.getElementById('config-athena-database');
+const athenaTableInput     = document.getElementById('config-athena-table');
+const athenaDatabaseError  = document.getElementById('config-athena-database-error');
+const athenaTableError     = document.getElementById('config-athena-table-error');
+const athenaSaveForm       = document.getElementById('config-athena-form');
+const athenaFeedback       = document.getElementById('config-athena-feedback');
 
 function _setBadge(badgeEl, configured) {
   badgeEl.textContent = configured ? 'Configured' : 'Not Configured';
@@ -702,6 +709,11 @@ async function loadConfigPage() {
     githubTokenInput.value  = github.token || '';
     githubBranchInput.value = github.default_branch || '';
     _setBadge(githubMcpStatusBadge, github.configured);
+
+    const athena = data.athena || { configured: false };
+    athenaDatabaseInput.value = athena.database || '';
+    athenaTableInput.value    = athena.table || '';
+    _setBadge(athenaStatusBadge, athena.configured);
   } catch {
     _showFeedback(awsFeedback, 'Failed to load configuration.', true);
   }
@@ -883,6 +895,44 @@ githubMcpSaveForm.addEventListener('submit', async (e) => {
     }
   } catch (err) {
     _showFeedback(githubMcpFeedback, `Error: ${err.message}`, true);
+  }
+});
+
+athenaSaveForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  _clearFieldError(athenaDatabaseInput, athenaDatabaseError);
+  _clearFieldError(athenaTableInput, athenaTableError);
+  athenaFeedback.classList.add('hidden');
+
+  const database = athenaDatabaseInput.value.trim();
+  const table    = athenaTableInput.value.trim();
+
+  let valid = true;
+  if (!database) {
+    _showFieldError(athenaDatabaseInput, athenaDatabaseError, 'Database is required.');
+    valid = false;
+  }
+  if (!table) {
+    _showFieldError(athenaTableInput, athenaTableError, 'Table is required.');
+    valid = false;
+  }
+  if (!valid) return;
+
+  try {
+    const resp = await fetch('/api/config/athena', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ database, table }),
+    });
+    const data = await resp.json();
+    if (resp.ok && data.success) {
+      _showFeedback(athenaFeedback, 'Athena configuration saved.', false);
+      await loadConfigPage();
+    } else {
+      _showFeedback(athenaFeedback, data.detail ? JSON.stringify(data.detail) : 'Failed to save Athena configuration.', true);
+    }
+  } catch (err) {
+    _showFeedback(athenaFeedback, `Error: ${err.message}`, true);
   }
 });
 

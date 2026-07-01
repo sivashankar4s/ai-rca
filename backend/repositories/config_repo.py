@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from backend.db.models import AppConfig
 from backend.models.schemas import (
     MASK_SENTINEL,
+    AthenaConfigUpdate,
     AwsConfigUpdate,
     CloudWatchConfigUpdate,
     GithubMcpConfigUpdate,
@@ -92,3 +93,9 @@ def upsert_cloudwatch_config(db: Session, data: CloudWatchConfigUpdate) -> AppCo
         cloudwatch_cfg["query_timeout"] = data.query_timeout
 
     return _upsert_app_config(db, cloudwatch_config=cloudwatch_cfg)
+
+
+def upsert_athena_config(db: Session, data: AthenaConfigUpdate) -> AppConfig:
+    """Persist Athena database + table (no secrets to mask)."""
+    athena_cfg: dict = {"database": data.database, "table": data.table}
+    return _upsert_app_config(db, athena_config=athena_cfg)

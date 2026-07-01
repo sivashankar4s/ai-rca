@@ -189,6 +189,23 @@ class TestAthenaDataSource:
         assert "2026-06-16" in sql
         assert "FAILED" in sql
 
+    def test_injected_database_and_table_used_in_sql(self) -> None:
+        ds = AthenaDataSource(database="mydb", table="mytable")
+        sql = ds._build_sql(_START, _END, None)
+        assert " FROM mydb.mytable" in sql
+
+    def test_database_and_table_fall_back_to_settings(self) -> None:
+        with patch("backend.providers.data_source.athena.settings") as mock_settings:
+            mock_settings.athena_database = "envdb"
+            mock_settings.athena_table = "envtable"
+            mock_settings.aws_region = "us-east-1"
+            mock_settings.aws_access_key_id = ""
+            mock_settings.aws_secret_access_key = ""
+            mock_settings.aws_session_token = ""
+            ds = AthenaDataSource()
+        assert ds._database == "envdb"
+        assert ds._table == "envtable"
+
     def test_raw_payload_is_populated(self) -> None:
         ds, stubber = _make_ds()
         with stubber:

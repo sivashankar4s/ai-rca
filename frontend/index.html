@@ -243,6 +243,31 @@
         <div class="config-feedback hidden" id="config-cw-feedback"></div>
       </div>
 
+      <!-- Athena card -->
+      <div class="config-card" id="config-athena-card">
+        <div class="config-card-header">
+          <h3>Amazon Athena</h3>
+          <span class="config-status-badge" id="athena-status-badge">Not Configured</span>
+        </div>
+        <form id="config-athena-form" novalidate>
+          <div class="config-field">
+            <label for="config-athena-database">Database <span class="required">*</span></label>
+            <input type="text" id="config-athena-database" name="database"
+                   placeholder="failure_analytics" autocomplete="off" />
+            <span class="config-field-error hidden" id="config-athena-database-error"></span>
+          </div>
+          <div class="config-field">
+            <label for="config-athena-table">Table <span class="required">*</span></label>
+            <input type="text" id="config-athena-table" name="table"
+                   placeholder="failure_events" autocomplete="off" />
+            <span class="config-field-error hidden" id="config-athena-table-error"></span>
+          </div>
+          <p class="config-note">S3 output bucket and region are set via environment (<code>ATHENA_OUTPUT_BUCKET</code>, AWS region). Athena queries fail without an output bucket.</p>
+          <button class="btn btn-primary" id="config-athena-save" type="submit">Save Athena Config</button>
+        </form>
+        <div class="config-feedback hidden" id="config-athena-feedback"></div>
+      </div>
+
       <!-- GitHub MCP Settings card -->
       <div class="config-card" id="config-github-mcp-card">
         <div class="config-card-header">

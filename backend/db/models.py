@@ -56,6 +56,7 @@ class AppConfig(Base):
     aws_config: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     github_mcp_config: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     cloudwatch_config: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    athena_config: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
