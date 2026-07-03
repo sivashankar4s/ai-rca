@@ -126,12 +126,19 @@ class TestGetLlm:
             result = get_llm()
         assert isinstance(result, NavifyLLMProvider)
 
-    def test_anthropic_provider_returns_navify_instance(self) -> None:
-        with patch("backend.plugin_registry.settings") as mock_settings:
+    def test_anthropic_provider_returns_anthropic_instance(self) -> None:
+        from backend.providers.llm.anthropic_provider import AnthropicLLMProvider
+
+        with (
+            patch("backend.plugin_registry.settings") as mock_settings,
+            patch("backend.providers.llm.anthropic_provider.anthropic.Anthropic"),
+        ):
             mock_settings.llm_provider = "anthropic"
             mock_settings.llm_base_url = "http://llm.example.com"
+            mock_settings.llm_api_key = "key"
+            mock_settings.llm_model = "claude-opus-4-8"
             result = get_llm()
-        assert isinstance(result, NavifyLLMProvider)
+        assert isinstance(result, AnthropicLLMProvider)
 
     def test_unknown_provider_raises_value_error(self) -> None:
         with patch("backend.plugin_registry.settings") as mock_settings:
