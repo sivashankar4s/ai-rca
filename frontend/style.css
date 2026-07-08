@@ -1,4 +1,4 @@
-/* AI-RCA Tool — dark theme */
+/* Sentinel AI — dark theme */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -512,4 +512,223 @@ a.github-pr-title:hover { color: var(--accent); text-decoration: underline; }
   .btn { width: 100%; justify-content: center; }
   .config-grid { grid-template-columns: 1fr; }
   .message-cell { max-width: 220px; }
+}
+
+/* ── Service Health dashboard (feature 021) ─────────────────────────────── */
+.health-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.health-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.health-profile-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.health-profile-controls select {
+  flex: 1 1 160px;
+  min-width: 140px;
+}
+.config-profile-empty {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-top: 6px;
+}
+.health-total-badge {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 18%, transparent);
+  color: var(--muted);
+}
+.health-total-badge.health-total-nonzero {
+  background: color-mix(in srgb, var(--danger) 15%, transparent);
+  color: var(--danger);
+}
+.health-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+.health-status {
+  color: var(--muted);
+  margin-bottom: 12px;
+  min-height: 1em;
+}
+.health-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+}
+.health-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+.health-card.health-green { border-left-color: var(--success); }
+.health-card.health-amber { border-left-color: var(--warn); }
+.health-card.health-red   { border-left-color: var(--danger); }
+.health-card.health-gray  { border-left-color: var(--muted); }
+.health-card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+.health-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.health-dot.health-green { background: var(--success); }
+.health-dot.health-amber { background: var(--warn); }
+.health-dot.health-red   { background: var(--danger); }
+.health-dot.health-gray  { background: var(--muted); }
+.health-card-name {
+  font-weight: 600;
+  margin: 6px 0 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.health-card-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+.health-card-status { text-transform: capitalize; }
+.health-card-detail {
+  margin-top: 8px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.health-card {
+  cursor: pointer;
+  transition: box-shadow 0.12s ease, transform 0.12s ease;
+}
+.health-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  transform: translateY(-1px);
+}
+
+/* ── Drill-down modal ────────────────────────────────────────────────────── */
+.health-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 16px;
+  overflow-y: auto;
+  z-index: 100;
+}
+.health-modal-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  width: 100%;
+  max-width: 820px;
+  padding: 20px 22px;
+}
+.health-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.health-modal-title {
+  margin: 4px 0 0;
+  word-break: break-all;
+}
+.health-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.6rem;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+}
+.health-modal-controls {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.health-modal-body,
+.health-modal-failures {
+  overflow-x: auto;
+}
+.health-modal-failures {
+  margin-top: 16px;
+}
+.health-runs {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.health-runs th,
+.health-runs td {
+  text-align: left;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.health-runs th {
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+}
+.health-run-fail td { background: color-mix(in srgb, var(--danger) 8%, transparent); }
+.health-run-status {
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.health-run-fail .health-run-status { color: var(--danger); }
+.health-msg {
+  color: var(--muted);
+  padding: 8px 0;
+}
+.health-failure-card {
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--danger);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.health-failure-card .trace {
+  font-family: var(--mono, monospace);
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.health-failure-card pre {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.82rem;
 }

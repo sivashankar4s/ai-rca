@@ -175,9 +175,7 @@ class TestPostFailures:
         resp = _CLIENT.post("/api/failures", json={"time_range": "2h"})
         assert resp.status_code == 422
 
-    def test_fetched_records_are_persisted(
-        self, _db_mocks: tuple[MagicMock, MagicMock]
-    ) -> None:
+    def test_fetched_records_are_persisted(self, _db_mocks: tuple[MagicMock, MagicMock]) -> None:
         get_project, upsert = _db_mocks
         records = [_FAKE_RECORD]
         with patch("backend.routers.analysis.get_data_source", return_value=_mock_ds(records)):
@@ -273,9 +271,7 @@ class TestPostAnalyze:
 
 class TestPostAnalyzeStream:
     def test_streams_rca_chunks(self) -> None:
-        with patch(
-            "backend.routers.analysis.stream_rca", return_value=iter(["root ", "cause"])
-        ):
+        with patch("backend.routers.analysis.stream_rca", return_value=iter(["root ", "cause"])):
             resp = _CLIENT.post(
                 "/api/analyze/stream",
                 json={"time_range": "1d", "records": [{"file_trace_id": "t1"}]},

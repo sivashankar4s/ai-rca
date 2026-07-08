@@ -1,8 +1,10 @@
-# AI Root Cause Analyzer (AI-RCA)
+# Sentinel AI
 
 > **Hackathon Project**
-> Automated, AI-driven Root Cause Analysis for data-pipeline failures — from raw failure
-> records to grouped root causes, log deep-links, and a CRM-style case history.
+> AI-powered service health monitoring and root-cause analysis for AWS data pipelines —
+> on-demand health for Glue, Lambda, DataSync, and workflows (grouped into profiles),
+> failure drill-downs with CloudWatch reasons, AI-driven root-cause analysis, and a
+> CRM-style case history.
 
 ---
 

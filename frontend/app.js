@@ -740,6 +740,13 @@ async function loadConfigPage() {
     athenaDatabaseInput.value = athena.database || '';
     athenaTableInput.value    = athena.table || '';
     _setBadge(athenaStatusBadge, athena.configured);
+
+    await loadConfigProfiles();
+    if (aws.configured) {
+      await Promise.all(Object.values(healthPickers).map(p => p.load()));
+    } else {
+      Object.values(healthPickers).forEach(p => p.reset());
+    }
   } catch {
     _showFeedback(awsFeedback, 'Failed to load configuration.', true);
   }
@@ -849,8 +856,17 @@ function _cwUpdateSummary() {
 
 function _cwVisibleGroups() {
   const all = [...cwAllGroups].sort();
-  const filter = cwLgSearch.value.trim().toLowerCase();
-  return filter ? all.filter(g => g.toLowerCase().includes(filter)) : all;
+  // Support "|"-separated AND terms, e.g. "onedbm|db11204" matches groups
+  // whose name contains "onedbm" AND "db11204" anywhere.
+  const terms = cwLgSearch.value.toLowerCase()
+    .split('|')
+    .map(t => t.trim())
+    .filter(Boolean);
+  if (terms.length === 0) return all;
+  return all.filter(g => {
+    const name = g.toLowerCase();
+    return terms.every(t => name.includes(t));
+  });
 }
 
 function _cwSyncSelectAll(visible) {
@@ -1017,18 +1033,571 @@ athenaSaveForm.addEventListener('submit', async (e) => {
   }
 });
 
+// ── Service Health dashboard (feature 021) ──────────────────────────────────
+
+const healthGrid    = document.getElementById('health-grid');
+const healthStatusEl = document.getElementById('health-status');
+const healthWindowSel = document.getElementById('health-window');
+const healthRefreshBtn = document.getElementById('health-refresh');
+const healthSpinner = document.getElementById('health-spinner');
+const healthTotalEl = document.getElementById('health-total');
+const healthStartEl = document.getElementById('health-start');
+const healthEndEl = document.getElementById('health-end');
+const healthRangeEls = [document.getElementById('health-range'), document.getElementById('health-range-end')];
+const healthProfileSel = document.getElementById('health-profile');
+
+async function loadHealthTabProfiles() {
+  const previous = healthProfileSel.value;
+  const profiles = await fetchProfiles();
+  const names = profiles.map(p => p.name);
+  healthProfileSel.innerHTML = names.length
+    ? names.map(n => `<option value="${_esc(n)}">${_esc(n)}</option>`).join('')
+    : '<option value="">No profiles</option>';
+  if (names.includes(previous)) healthProfileSel.value = previous;
+}
+
+function _renderHealthTotal(total, count) {
+  if (count === 0) {
+    healthTotalEl.classList.add('hidden');
+    return;
+  }
+  healthTotalEl.textContent = `${total} failure${total === 1 ? '' : 's'} total`;
+  healthTotalEl.classList.toggle('health-total-nonzero', total > 0);
+  healthTotalEl.classList.remove('hidden');
+}
+
+const HEALTH_SERVICE_LABELS = {
+  glue_job: 'Glue Job',
+  glue_workflow: 'Glue Workflow',
+  lambda_function: 'Lambda',
+  datasync_task: 'DataSync',
+};
+
+function _healthCls(r) {
+  if (r.status === 'down') return 'health-red';
+  if (r.status === 'unknown') return 'health-gray';
+  return r.failure_count > 0 ? 'health-amber' : 'health-green';
+}
+
+let _healthResults = [];
+
+function _renderHealthCards(results) {
+  _healthResults = results;
+  if (results.length === 0) {
+    healthGrid.innerHTML = '';
+    healthStatusEl.textContent = 'No services configured. Add resources on the Config tab.';
+    return;
+  }
+  healthStatusEl.textContent = 'Click a card for run history and failure reasons.';
+  healthGrid.innerHTML = results.map((r, i) => {
+    const cls = _healthCls(r);
+    const fails = `${r.failure_count} failure${r.failure_count === 1 ? '' : 's'}`;
+    const detail = r.detail ? `<div class="health-card-detail">${_esc(r.detail)}</div>` : '';
+    return `<div class="health-card ${cls}" data-idx="${i}" role="button" tabindex="0" title="View details for ${_esc(r.label)}">
+      <div class="health-card-top"><span class="health-dot ${cls}"></span><span class="health-card-type">${HEALTH_SERVICE_LABELS[r.service_type] || r.service_type}</span></div>
+      <div class="health-card-name" title="${_esc(r.id)}">${_esc(r.label)}</div>
+      <div class="health-card-meta"><span class="health-card-status">${_esc(r.status)}</span><span>${fails}</span></div>
+      ${detail}
+    </div>`;
+  }).join('');
+}
+
+function _healthUrl() {
+  const profile = healthProfileSel.value;
+  const profileParam = profile ? `&profile=${encodeURIComponent(profile)}` : '';
+  const win = healthWindowSel.value;
+  if (win !== 'custom') {
+    return `/api/health/services?window=${encodeURIComponent(win)}${profileParam}`;
+  }
+  if (!healthStartEl.value || !healthEndEl.value) return null;
+  const start = `${healthStartEl.value}T00:00:00Z`;
+  const end = `${healthEndEl.value}T23:59:59Z`;
+  return `/api/health/services?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}${profileParam}`;
+}
+
+async function loadServiceHealth() {
+  const url = _healthUrl();
+  if (url === null) {
+    healthStatusEl.textContent = 'Pick a start and end date.';
+    return;
+  }
+  healthSpinner.classList.remove('hidden');
+  healthRefreshBtn.disabled = true;
+  healthStatusEl.textContent = 'Loading…';
+  try {
+    const resp = await fetch(url);
+    const data = await resp.json();
+    if (resp.ok) {
+      const results = data.results || [];
+      _renderHealthCards(results);
+      _renderHealthTotal(data.total_failures || 0, results.length);
+    } else {
+      healthGrid.innerHTML = '';
+      _renderHealthTotal(0, 0);
+      healthStatusEl.textContent = data.detail ? `Failed: ${JSON.stringify(data.detail)}` : 'Failed to load health.';
+    }
+  } catch (err) {
+    healthGrid.innerHTML = '';
+    healthStatusEl.textContent = `Error: ${err.message}`;
+  } finally {
+    healthSpinner.classList.add('hidden');
+    healthRefreshBtn.disabled = false;
+  }
+}
+
+function _onHealthWindowChange() {
+  const custom = healthWindowSel.value === 'custom';
+  healthRangeEls.forEach(el => el.classList.toggle('hidden', !custom));
+  if (custom) {
+    if (!healthStartEl.value || !healthEndEl.value) {
+      const now = new Date();
+      healthStartEl.value = _ymd(new Date(now.getTime() - 7 * 86400000));
+      healthEndEl.value = _ymd(now);
+    }
+  }
+  loadServiceHealth();
+}
+
+healthWindowSel.addEventListener('change', _onHealthWindowChange);
+healthStartEl.addEventListener('change', loadServiceHealth);
+healthEndEl.addEventListener('change', loadServiceHealth);
+healthProfileSel.addEventListener('change', loadServiceHealth);
+healthRefreshBtn.addEventListener('click', loadServiceHealth);
+
+// ── Drill-down: run history + failure reasons for one resource ──────────────
+
+const healthModal = document.getElementById('health-detail-modal');
+const healthDetailType = document.getElementById('health-detail-type');
+const healthDetailTitle = document.getElementById('health-detail-title');
+const healthDetailStart = document.getElementById('health-detail-start');
+const healthDetailEnd = document.getElementById('health-detail-end');
+const healthDetailLoad = document.getElementById('health-detail-load');
+const healthDetailSpinner = document.getElementById('health-detail-spinner');
+const healthDetailBody = document.getElementById('health-detail-body');
+const healthDetailFailures = document.getElementById('health-detail-failures');
+const healthFailuresBtn = document.getElementById('health-detail-fetch-failures');
+const healthFailuresSpinner = document.getElementById('health-failures-spinner');
+
+let _healthDetailTarget = null;  // { service_type, id, label }
+
+function _ymd(d) { return d.toISOString().slice(0, 10); }
+function _fmtTs(s) { return s ? new Date(s).toLocaleString() : '—'; }
+
+function _detailRange() {
+  return {
+    start: `${healthDetailStart.value}T00:00:00Z`,
+    end: `${healthDetailEnd.value}T23:59:59Z`,
+  };
+}
+
+// The From/To dates the Health tab is currently set to — a custom range verbatim,
+// or the equivalent day span for a preset window. The drill-down opens with these
+// so the "info" view matches the range you're already looking at.
+function _healthTabDateRange() {
+  const now = new Date();
+  if (healthWindowSel.value === 'custom' && healthStartEl.value && healthEndEl.value) {
+    return { start: healthStartEl.value, end: healthEndEl.value };
+  }
+  const daysBack = { '1h': 0, '24h': 1, '7d': 7 }[healthWindowSel.value] ?? 7;
+  return { start: _ymd(new Date(now.getTime() - daysBack * 86400000)), end: _ymd(now) };
+}
+
+function openHealthDetail(result) {
+  _healthDetailTarget = { service_type: result.service_type, id: result.id, label: result.label };
+  healthDetailType.textContent = HEALTH_SERVICE_LABELS[result.service_type] || result.service_type;
+  healthDetailTitle.textContent = result.label;
+  const range = _healthTabDateRange();
+  healthDetailStart.value = range.start;
+  healthDetailEnd.value = range.end;
+  healthDetailBody.innerHTML = '';
+  healthDetailFailures.innerHTML = '';
+  healthModal.classList.remove('hidden');
+  loadHealthHistory();
+}
+
+function closeHealthDetail() {
+  healthModal.classList.add('hidden');
+  _healthDetailTarget = null;
+}
+
+function _renderRuns(runs) {
+  const rows = runs.map(r => `<tr class="${r.is_failure ? 'health-run-fail' : ''}">
+    <td>${_esc(r.run_id || '—')}</td>
+    <td class="health-run-status">${_esc(r.status || '—')}</td>
+    <td>${_fmtTs(r.started_at)}</td>
+    <td>${_fmtTs(r.ended_at)}</td>
+    <td>${r.detail ? _esc(r.detail) : ''}</td>
+  </tr>`).join('');
+  return `<table class="health-runs">
+    <thead><tr><th>Run</th><th>Status</th><th>Started</th><th>Ended</th><th>Detail</th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
+}
+
+async function loadHealthHistory() {
+  if (!_healthDetailTarget) return;
+  healthDetailSpinner.classList.remove('hidden');
+  healthDetailLoad.disabled = true;
+  healthDetailBody.innerHTML = '<div class="health-msg">Loading history…</div>';
+  try {
+    const resp = await fetch('/api/health/services/runs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ..._healthDetailTarget, ..._detailRange() }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      healthDetailBody.innerHTML = `<div class="health-msg">${data.detail ? _esc(JSON.stringify(data.detail)) : 'Failed to load history.'}</div>`;
+      return;
+    }
+    const runs = data.runs || [];
+    if (runs.length > 0) {
+      healthDetailBody.innerHTML = _renderRuns(runs);
+    } else {
+      healthDetailBody.innerHTML = `<div class="health-msg">${data.detail ? _esc(data.detail) : 'No failed runs in this date range.'}</div>`;
+    }
+  } catch (err) {
+    healthDetailBody.innerHTML = `<div class="health-msg">Error: ${_esc(err.message)}</div>`;
+  } finally {
+    healthDetailSpinner.classList.add('hidden');
+    healthDetailLoad.disabled = false;
+  }
+}
+
+function _renderFailures(records) {
+  if (records.length === 0) {
+    return '<div class="health-msg">No failure logs found in CloudWatch for this range.</div>';
+  }
+  const cards = records.map(r => `<div class="health-failure-card">
+    <div class="trace">${_esc(r.file_trace_id || '—')}${r.event_created_ts ? ' · ' + _fmtTs(r.event_created_ts) : ''}</div>
+    <pre>${_esc(r.message || '(no message)')}</pre>
+  </div>`).join('');
+  return `<h4>Failure reasons (${records.length})</h4>${cards}`;
+}
+
+async function fetchHealthFailures() {
+  if (!_healthDetailTarget) return;
+  healthFailuresSpinner.classList.remove('hidden');
+  healthFailuresBtn.disabled = true;
+  healthDetailFailures.innerHTML = '<div class="health-msg">Querying CloudWatch for failure reasons…</div>';
+  try {
+    const resp = await fetch('/api/health/services/failures', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ..._healthDetailTarget, ..._detailRange() }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      healthDetailFailures.innerHTML = `<div class="health-msg">${data.detail ? _esc(JSON.stringify(data.detail)) : 'Failed to fetch failures.'}</div>`;
+      return;
+    }
+    healthDetailFailures.innerHTML = _renderFailures(data.records || []);
+  } catch (err) {
+    healthDetailFailures.innerHTML = `<div class="health-msg">Error: ${_esc(err.message)}</div>`;
+  } finally {
+    healthFailuresSpinner.classList.add('hidden');
+    healthFailuresBtn.disabled = false;
+  }
+}
+
+function _openFromCard(el) {
+  const idx = Number(el.dataset.idx);
+  const result = _healthResults[idx];
+  if (result) openHealthDetail(result);
+}
+
+healthGrid.addEventListener('click', (e) => {
+  const card = e.target.closest('.health-card');
+  if (card) _openFromCard(card);
+});
+healthGrid.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const card = e.target.closest('.health-card');
+  if (card) { e.preventDefault(); _openFromCard(card); }
+});
+healthDetailLoad.addEventListener('click', loadHealthHistory);
+healthFailuresBtn.addEventListener('click', fetchHealthFailures);
+document.getElementById('health-detail-close').addEventListener('click', closeHealthDetail);
+healthModal.addEventListener('click', (e) => { if (e.target === healthModal) closeHealthDetail(); });
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !healthModal.classList.contains('hidden')) closeHealthDetail();
+});
+
+// ── Health resource pickers (Config tab) — one reusable multi-select factory ──
+
+function createHealthPicker(service, url) {
+  const el = suffix => document.getElementById(`hp-${service}-${suffix}`);
+  const dropdown = el('dropdown');
+  const toggle = el('toggle');
+  const summary = el('summary');
+  const panel = el('panel');
+  const search = el('search');
+  const refresh = el('refresh');
+  const status = el('status');
+  const list = el('list');
+  const placeholder = summary.textContent;
+
+  let all = [];                // [{id,label}]
+  const selected = new Set();  // ids
+  const labels = new Map();    // id -> label
+
+  function updateSummary() {
+    const n = selected.size;
+    summary.textContent = n === 0
+      ? placeholder
+      : (n === 1 ? (labels.get([...selected][0]) || [...selected][0]) : `${n} selected`);
+    if (all.length > 0) status.textContent = `${all.length} available • ${n} selected`;
+  }
+
+  function visible() {
+    const terms = search.value.toLowerCase().split('|').map(t => t.trim()).filter(Boolean);
+    const sorted = [...all].sort((a, b) => a.label.localeCompare(b.label));
+    if (terms.length === 0) return sorted;
+    return sorted.filter(r => terms.every(t => r.label.toLowerCase().includes(t)));
+  }
+
+  function render() {
+    if (all.length === 0) { list.innerHTML = ''; return; }
+    const vis = visible();
+    if (vis.length === 0) { list.innerHTML = '<p class="cw-lg-empty">No matches.</p>'; return; }
+    list.innerHTML = vis.map(r => {
+      const checked = selected.has(r.id) ? ' checked' : '';
+      return `<label class="cw-lg-item"><input type="checkbox" data-id="${_esc(r.id)}"${checked} /> ${_esc(r.label)}</label>`;
+    }).join('');
+    list.querySelectorAll('input[data-id]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const id = cb.getAttribute('data-id');
+        if (cb.checked) selected.add(id); else selected.delete(id);
+        updateSummary();
+      });
+    });
+  }
+
+  async function load() {
+    status.textContent = 'Loading…';
+    refresh.disabled = true;
+    try {
+      const resp = await fetch(url);
+      const data = await resp.json();
+      if (resp.ok) {
+        all = data.resources || [];
+        all.forEach(r => labels.set(r.id, r.label));
+        const ids = new Set(all.map(r => r.id));
+        [...selected].forEach(id => { if (!ids.has(id)) selected.delete(id); });
+        render();
+        if (all.length === 0) status.textContent = 'None found in this account/region.';
+        updateSummary();
+      } else {
+        list.innerHTML = '';
+        status.textContent = data.detail ? `Failed: ${data.detail}` : 'Failed to load.';
+      }
+    } catch (err) {
+      list.innerHTML = '';
+      status.textContent = `Error: ${err.message}`;
+    } finally {
+      refresh.disabled = false;
+    }
+  }
+
+  toggle.addEventListener('click', () => panel.classList.toggle('hidden'));
+  document.addEventListener('click', e => { if (!dropdown.contains(e.target)) panel.classList.add('hidden'); });
+  search.addEventListener('input', render);
+  refresh.addEventListener('click', load);
+
+  return {
+    setSelection(items) {
+      selected.clear();
+      (items || []).forEach(it => {
+        const id = typeof it === 'string' ? it : it.id;
+        const label = typeof it === 'string' ? it : it.label;
+        selected.add(id);
+        labels.set(id, label);
+      });
+      updateSummary();
+    },
+    reset() {
+      all = [];
+      selected.clear();
+      list.innerHTML = '';
+      status.textContent = 'Save AWS credentials to load.';
+      updateSummary();
+    },
+    load,
+    getIds() { return [...selected]; },
+    getResources() { return [...selected].map(id => ({ id, label: labels.get(id) || id })); },
+  };
+}
+
+const healthPickers = {
+  glue_jobs: createHealthPicker('glue_jobs', '/api/config/health/glue-jobs'),
+  glue_workflows: createHealthPicker('glue_workflows', '/api/config/health/glue-workflows'),
+  lambda_functions: createHealthPicker('lambda_functions', '/api/config/health/lambda-functions'),
+  datasync_tasks: createHealthPicker('datasync_tasks', '/api/config/health/datasync-tasks'),
+};
+
+// ── Health profiles (Config tab) ────────────────────────────────────────────
+
+const configProfileSelect = document.getElementById('config-profile-select');
+const configProfileEmpty = document.getElementById('config-profile-empty');
+const configHealthSaveBtn = document.getElementById('config-health-save');
+const healthProfileFeedback = document.getElementById('config-health-feedback');
+
+let _configProfiles = [];  // [{name, glue_jobs, ...}]
+
+async function fetchProfiles() {
+  const resp = await fetch('/api/config/health/profiles');
+  if (!resp.ok) return [];
+  const data = await resp.json();
+  return data.profiles || [];
+}
+
+function _applyProfileToPickers(profile) {
+  healthPickers.glue_jobs.setSelection(profile ? profile.glue_jobs : []);
+  healthPickers.glue_workflows.setSelection(profile ? profile.glue_workflows : []);
+  healthPickers.lambda_functions.setSelection(profile ? profile.lambda_functions : []);
+  healthPickers.datasync_tasks.setSelection(profile ? profile.datasync_tasks : []);
+}
+
+function _currentConfigProfile() {
+  return _configProfiles.find(p => p.name === configProfileSelect.value) || null;
+}
+
+function _renderConfigProfiles(selectName) {
+  const names = _configProfiles.map(p => p.name);
+  configProfileSelect.innerHTML = names.map(n => `<option value="${_esc(n)}">${_esc(n)}</option>`).join('');
+  const hasProfiles = names.length > 0;
+  configProfileSelect.classList.toggle('hidden', !hasProfiles);
+  configProfileEmpty.classList.toggle('hidden', hasProfiles);
+  configHealthSaveBtn.disabled = !hasProfiles;
+  _setBadge(document.getElementById('health-status-badge'), hasProfiles);
+  ['config-profile-rename', 'config-profile-delete'].forEach(id => {
+    document.getElementById(id).disabled = !hasProfiles;
+  });
+  if (hasProfiles) {
+    configProfileSelect.value = names.includes(selectName) ? selectName : names[0];
+  }
+  _applyProfileToPickers(_currentConfigProfile());
+}
+
+async function loadConfigProfiles(selectName) {
+  _configProfiles = await fetchProfiles();
+  _renderConfigProfiles(selectName || configProfileSelect.value);
+}
+
+async function saveHealthConfig() {
+  const profile = _currentConfigProfile();
+  if (!profile) {
+    _showFeedback(healthProfileFeedback, 'Create a profile first.', true);
+    return;
+  }
+  const payload = {
+    name: profile.name,
+    glue_jobs: healthPickers.glue_jobs.getIds(),
+    glue_workflows: healthPickers.glue_workflows.getIds(),
+    lambda_functions: healthPickers.lambda_functions.getIds(),
+    datasync_tasks: healthPickers.datasync_tasks.getResources(),
+  };
+  try {
+    const resp = await fetch('/api/config/health/profiles', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await resp.json();
+    if (resp.ok) {
+      _showFeedback(healthProfileFeedback, `Profile "${profile.name}" saved.`, false);
+      await loadConfigProfiles(profile.name);
+    } else {
+      _showFeedback(healthProfileFeedback, data.detail ? JSON.stringify(data.detail) : 'Failed to save profile.', true);
+    }
+  } catch (err) {
+    _showFeedback(healthProfileFeedback, `Error: ${err.message}`, true);
+  }
+}
+
+async function createProfile() {
+  const name = (window.prompt('New profile name:') || '').trim();
+  if (!name) return;
+  try {
+    const resp = await fetch('/api/config/health/profiles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    const data = await resp.json();
+    if (resp.ok) {
+      await loadConfigProfiles(data.name);
+      _showFeedback(healthProfileFeedback, `Profile "${data.name}" created.`, false);
+    } else {
+      _showFeedback(healthProfileFeedback, data.detail || 'Failed to create profile.', true);
+    }
+  } catch (err) {
+    _showFeedback(healthProfileFeedback, `Error: ${err.message}`, true);
+  }
+}
+
+async function renameProfile() {
+  const current = _currentConfigProfile();
+  if (!current) return;
+  const newName = (window.prompt('Rename profile to:', current.name) || '').trim();
+  if (!newName || newName === current.name) return;
+  try {
+    const resp = await fetch('/api/config/health/profiles/rename', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: current.name, new_name: newName }),
+    });
+    const data = await resp.json();
+    if (resp.ok) {
+      await loadConfigProfiles(data.name);
+      _showFeedback(healthProfileFeedback, `Renamed to "${data.name}".`, false);
+    } else {
+      _showFeedback(healthProfileFeedback, data.detail || 'Failed to rename profile.', true);
+    }
+  } catch (err) {
+    _showFeedback(healthProfileFeedback, `Error: ${err.message}`, true);
+  }
+}
+
+async function deleteProfile() {
+  const current = _currentConfigProfile();
+  if (!current) return;
+  if (!window.confirm(`Delete profile "${current.name}"? This can't be undone.`)) return;
+  try {
+    const resp = await fetch(`/api/config/health/profiles?name=${encodeURIComponent(current.name)}`, {
+      method: 'DELETE',
+    });
+    const data = await resp.json();
+    if (resp.ok) {
+      await loadConfigProfiles();
+      _showFeedback(healthProfileFeedback, `Profile "${current.name}" deleted.`, false);
+    } else {
+      _showFeedback(healthProfileFeedback, data.detail || 'Failed to delete profile.', true);
+    }
+  } catch (err) {
+    _showFeedback(healthProfileFeedback, `Error: ${err.message}`, true);
+  }
+}
+
+configHealthSaveBtn.addEventListener('click', saveHealthConfig);
+configProfileSelect.addEventListener('change', () => _applyProfileToPickers(_currentConfigProfile()));
+document.getElementById('config-profile-new').addEventListener('click', createProfile);
+document.getElementById('config-profile-rename').addEventListener('click', renameProfile);
+document.getElementById('config-profile-delete').addEventListener('click', deleteProfile);
+
 // ── Navigation (tabs) ──────────────────────────────────────────────────────
 
 const navRca      = document.getElementById('nav-rca');
 const navGithub   = document.getElementById('nav-github');
+const navHealth   = document.getElementById('nav-health');
 const navConfig   = document.getElementById('nav-config');
 const rcaView     = document.getElementById('rca-view');
 const githubView  = document.getElementById('github-view');
+const healthView  = document.getElementById('health-view');
 const configView  = document.getElementById('config-view');
 
 function _activateTab(view, tab) {
-  [rcaView, githubView, configView].forEach(v => v.classList.add('hidden'));
-  [navRca, navGithub, navConfig].forEach(t => t.classList.remove('active'));
+  [rcaView, githubView, healthView, configView].forEach(v => v.classList.add('hidden'));
+  [navRca, navGithub, navHealth, navConfig].forEach(t => t.classList.remove('active'));
   view.classList.remove('hidden');
   tab.classList.add('active');
 }
@@ -1042,6 +1611,12 @@ function showGithub() {
   if (!githubLoaded) loadGithubPullRequests();
 }
 
+async function showHealth() {
+  _activateTab(healthView, navHealth);
+  await loadHealthTabProfiles();
+  loadServiceHealth();
+}
+
 function showConfig() {
   _activateTab(configView, navConfig);
   loadConfigPage();
@@ -1049,6 +1624,7 @@ function showConfig() {
 
 navRca.addEventListener('click', showRca);
 navGithub.addEventListener('click', showGithub);
+navHealth.addEventListener('click', showHealth);
 navConfig.addEventListener('click', showConfig);
 
 // ── Init ───────────────────────────────────────────────────────────────────

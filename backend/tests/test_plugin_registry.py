@@ -145,6 +145,8 @@ class TestGetLlm:
             mock_settings.llm_provider = "gpt-unknown"
             with pytest.raises(ValueError, match="Unknown llm_provider"):
                 get_llm()
+
+
 class TestGetLogBackend:
     def test_cloudwatch_returns_cloudwatch_backend(self) -> None:
         from backend.providers.log_backend.cloudwatch import CloudWatchLogBackend

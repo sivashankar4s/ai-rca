@@ -110,10 +110,7 @@ class TestCloudWatchDataSource:
         ds, client = _make_ds()
         second = _error_row(
             ts="2026-06-29 08:59:43.000",
-            message=(
-                "[ERROR]\t2026-06-29T08:59:43.000Z\t"
-                f"{_RID}\tSecond distinct failure detail."
-            ),
+            message=(f"[ERROR]\t2026-06-29T08:59:43.000Z\t{_RID}\tSecond distinct failure detail."),
         )
         duplicate = _error_row()  # identical text as the first
         records = _run(ds, client, [_error_row(), second, duplicate])
@@ -190,9 +187,7 @@ class TestCloudWatchDataSource:
     def test_failed_error_then_successful_report_attaches_metrics(self) -> None:
         ds, client = _make_ds()
         report = _report_row(
-            message=(
-                f"REPORT RequestId: {_RID} Duration: 100.0 ms Max Memory Used: 245 MB"
-            ),
+            message=(f"REPORT RequestId: {_RID} Duration: 100.0 ms Max Memory Used: 245 MB"),
             max_mem="256901120",
             mem_size="1073741824",
             ts="2026-06-29 08:59:44.000",

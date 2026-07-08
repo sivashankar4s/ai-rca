@@ -41,9 +41,7 @@ class NavifyLLMProvider(LLMStrategy):
             resp.raise_for_status()
             return resp.json()["choices"][0]["message"]["content"]
         except requests.exceptions.HTTPError as exc:
-            raise RuntimeError(
-                f"LLM request failed with HTTP {exc.response.status_code}"
-            ) from exc
+            raise RuntimeError(f"LLM request failed with HTTP {exc.response.status_code}") from exc
         except requests.exceptions.ConnectionError as exc:
             raise RuntimeError(f"Cannot connect to LLM endpoint ({self._url})") from exc
 
@@ -64,14 +62,10 @@ class NavifyLLMProvider(LLMStrategy):
             "stream": True,
         }
         try:
-            resp = requests.post(
-                self._url, json=payload, headers=headers, stream=True, timeout=120
-            )
+            resp = requests.post(self._url, json=payload, headers=headers, stream=True, timeout=120)
             resp.raise_for_status()
         except requests.exceptions.HTTPError as exc:
-            raise RuntimeError(
-                f"LLM request failed with HTTP {exc.response.status_code}"
-            ) from exc
+            raise RuntimeError(f"LLM request failed with HTTP {exc.response.status_code}") from exc
         except requests.exceptions.ConnectionError as exc:
             raise RuntimeError(f"Cannot connect to LLM endpoint ({self._url})") from exc
 
@@ -81,7 +75,7 @@ class NavifyLLMProvider(LLMStrategy):
             line = raw.decode("utf-8") if isinstance(raw, bytes) else raw
             if not line.startswith("data:"):
                 continue
-            data = line[len("data:"):].strip()
+            data = line[len("data:") :].strip()
             if data == "[DONE]":
                 break
             try:

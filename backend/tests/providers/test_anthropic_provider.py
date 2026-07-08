@@ -31,9 +31,7 @@ class _StreamCM:
 
 def _provider_with_client() -> tuple[AnthropicLLMProvider, MagicMock]:
     client = MagicMock()
-    with patch(
-        "backend.providers.llm.anthropic_provider.anthropic.Anthropic", return_value=client
-    ):
+    with patch("backend.providers.llm.anthropic_provider.anthropic.Anthropic", return_value=client):
         provider = AnthropicLLMProvider()
     return provider, client
 

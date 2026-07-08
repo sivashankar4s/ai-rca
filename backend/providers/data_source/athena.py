@@ -68,9 +68,7 @@ def _rows_to_records(rows: list[dict]) -> list[FailureRecord]:
 class AthenaDataSource(DataSourceStrategy):
     """Queries FAILED records from Amazon Athena for a given datetime window."""
 
-    def __init__(
-        self, database: str | None = None, table: str | None = None
-    ) -> None:
+    def __init__(self, database: str | None = None, table: str | None = None) -> None:
         # ``None`` means "fall back to env settings" — the registry injects the
         # effective config (DB app_config row, env fallback) when available.
         self._database = database or settings.athena_database

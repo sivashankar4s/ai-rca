@@ -8,16 +8,19 @@ from backend.config import settings
 from backend.services import github_service
 
 
-@pytest.mark.parametrize("repo,expected", [
-    ("owner/repo", ("owner", "repo")),
-    ("https://github.com/owner/repo", ("owner", "repo")),
-    ("https://github.com/owner/repo.git", ("owner", "repo")),
-    ("https://github.com/owner/repo/", ("owner", "repo")),
-    ("", None),
-    ("not-a-repo", None),
-    ("/no-owner", None),
-    ("owner/", None),
-])
+@pytest.mark.parametrize(
+    "repo,expected",
+    [
+        ("owner/repo", ("owner", "repo")),
+        ("https://github.com/owner/repo", ("owner", "repo")),
+        ("https://github.com/owner/repo.git", ("owner", "repo")),
+        ("https://github.com/owner/repo/", ("owner", "repo")),
+        ("", None),
+        ("not-a-repo", None),
+        ("/no-owner", None),
+        ("owner/", None),
+    ],
+)
 def test_parse_repo(repo, expected):
     assert github_service.parse_repo(repo) == expected
 
@@ -27,6 +30,7 @@ def test_parse_repo_none():
 
 
 # ── _as_list ──────────────────────────────────────────────────────────────────
+
 
 def test_as_list_with_list():
     data = [{"name": "main"}]
@@ -58,6 +62,7 @@ def test_as_list_non_dict():
 
 # ── get_repo_info ─────────────────────────────────────────────────────────────
 
+
 def test_get_repo_info_not_configured():
     original = settings.github_repo
     try:
@@ -85,7 +90,15 @@ def test_get_repo_info_success():
     try:
         settings.github_repo = "owner/repo"
         settings.github_token = "fake-token"
-        mcp_data = {"items": [{"default_branch": "main", "description": "Test repo", "html_url": "https://github.com/owner/repo"}]}
+        mcp_data = {
+            "items": [
+                {
+                    "default_branch": "main",
+                    "description": "Test repo",
+                    "html_url": "https://github.com/owner/repo",
+                }
+            ]
+        }
         with patch("backend.services.github_service.call_github_tool", return_value=mcp_data):
             result = github_service.get_repo_info()
         assert result.configured is True
@@ -124,6 +137,7 @@ def test_get_repo_info_mcp_error():
 
 
 # ── list_branches ─────────────────────────────────────────────────────────────
+
 
 def test_list_branches_not_configured():
     original = settings.github_repo
@@ -196,6 +210,7 @@ def test_list_branches_mcp_error():
 
 
 # ── list_pull_requests ────────────────────────────────────────────────────────
+
 
 def test_list_pull_requests_not_configured():
     original = settings.github_repo

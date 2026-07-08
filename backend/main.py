@@ -13,11 +13,12 @@ from fastapi.staticfiles import StaticFiles
 from backend.routers.analysis import router as analysis_router
 from backend.routers.config import router as config_router
 from backend.routers.github import router as github_router
+from backend.routers.health import router as health_router
 
 app = FastAPI(
-    title="AI Root Cause Analyzer",
+    title="Sentinel AI",
     version="1.0.0",
-    description="AI-powered RCA tool for production incidents",
+    description="AI-powered service health monitoring and root-cause analysis for AWS pipelines",
 )
 
 app.add_middleware(
@@ -31,6 +32,7 @@ app.add_middleware(
 app.include_router(analysis_router)
 app.include_router(config_router)
 app.include_router(github_router)
+app.include_router(health_router)
 
 
 @app.exception_handler(ValueError)

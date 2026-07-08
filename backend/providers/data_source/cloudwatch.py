@@ -325,9 +325,7 @@ class CloudWatchDataSource(DataSourceStrategy):
             if status in _TERMINAL_FAILURE_STATES:
                 raise RuntimeError(f"CloudWatch query failed: status={status}")
             if time.monotonic() >= deadline:
-                raise RuntimeError(
-                    f"CloudWatch query failed: query timed out after {timeout}s"
-                )
+                raise RuntimeError(f"CloudWatch query failed: query timed out after {timeout}s")
             time.sleep(_POLL_INTERVAL)
 
     def fetch_records(

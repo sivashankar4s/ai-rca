@@ -11,9 +11,21 @@ from backend.models.schemas import (
     AwsConfigUpdate,
     CloudWatchConfigUpdate,
     GithubMcpConfigUpdate,
+    HealthConfigUpdate,
+    HealthProfileUpdate,
 )
 
 logger = logging.getLogger(__name__)
+
+_RESOURCE_KEYS = ("glue_jobs", "glue_workflows", "lambda_functions", "datasync_tasks")
+
+
+class ProfileNameConflict(Exception):
+    """Raised when a profile name would collide with an existing one (case-insensitive)."""
+
+
+class ProfileNotFound(Exception):
+    """Raised when an operation targets a profile name that does not exist."""
 
 
 def get_app_config(db: Session) -> AppConfig | None:
@@ -99,3 +111,118 @@ def upsert_athena_config(db: Session, data: AthenaConfigUpdate) -> AppConfig:
     """Persist Athena database + table (no secrets to mask)."""
     athena_cfg: dict = {"database": data.database, "table": data.table}
     return _upsert_app_config(db, athena_config=athena_cfg)
+
+
+def upsert_health_config(db: Session, data: HealthConfigUpdate) -> AppConfig:
+    """Persist the monitored-resource selection (no secrets to mask). Legacy single config."""
+    health_cfg: dict = {
+        "glue_jobs": data.glue_jobs,
+        "glue_workflows": data.glue_workflows,
+        "lambda_functions": data.lambda_functions,
+        "datasync_tasks": [t.model_dump() for t in data.datasync_tasks],
+    }
+    return _upsert_app_config(db, health_config=health_cfg)
+
+
+# ── Health profiles — named resource sets, stored in the health_profiles JSONB list ──
+
+
+def _name_key(name: str) -> str:
+    return name.strip().casefold()
+
+
+def _empty_resources() -> dict:
+    return {k: [] for k in _RESOURCE_KEYS}
+
+
+def _default_from_legacy(health_cfg: dict) -> dict:
+    """Surface a pre-profiles ``health_config`` as a 'Default' profile."""
+    return {"name": "Default", **{k: health_cfg.get(k, []) for k in _RESOURCE_KEYS}}
+
+
+def _legacy_has_resources(health_cfg: dict | None) -> bool:
+    return bool(health_cfg) and any(health_cfg.get(k) for k in _RESOURCE_KEYS)
+
+
+def get_profiles(db: Session) -> list[dict]:
+    """Return all health profiles.
+
+    Once profiles have been managed the stored list wins (even when empty). Before that,
+    a non-empty legacy ``health_config`` is surfaced as a single 'Default' profile.
+    """
+    row = get_app_config(db)
+    if row is not None and row.health_profiles is not None:
+        return [dict(p) for p in row.health_profiles]
+    if row is not None and _legacy_has_resources(row.health_config):
+        return [_default_from_legacy(row.health_config)]
+    return []
+
+
+def get_profile_resources(db: Session, name: str | None = None) -> dict | None:
+    """Return one profile's resource dict; ``None`` selects the first profile."""
+    profiles = get_profiles(db)
+    if not profiles:
+        return None
+    if name is None:
+        return profiles[0]
+    key = _name_key(name)
+    return next((p for p in profiles if _name_key(p["name"]) == key), None)
+
+
+def _persist_profiles(db: Session, profiles: list[dict]) -> None:
+    _upsert_app_config(db, health_profiles=profiles)
+
+
+def create_profile(db: Session, name: str) -> dict:
+    """Create a new empty profile; raise ProfileNameConflict on a duplicate name."""
+    profiles = get_profiles(db)
+    key = _name_key(name)
+    if any(_name_key(p["name"]) == key for p in profiles):
+        raise ProfileNameConflict(name)
+    profile = {"name": name.strip(), **_empty_resources()}
+    profiles.append(profile)
+    _persist_profiles(db, profiles)
+    return profile
+
+
+def update_profile(db: Session, data: HealthProfileUpdate) -> dict:
+    """Replace an existing profile's resource lists; raise ProfileNotFound if missing."""
+    profiles = get_profiles(db)
+    key = _name_key(data.name)
+    for i, p in enumerate(profiles):
+        if _name_key(p["name"]) == key:
+            profiles[i] = {
+                "name": p["name"],
+                "glue_jobs": data.glue_jobs,
+                "glue_workflows": data.glue_workflows,
+                "lambda_functions": data.lambda_functions,
+                "datasync_tasks": [t.model_dump() for t in data.datasync_tasks],
+            }
+            _persist_profiles(db, profiles)
+            return profiles[i]
+    raise ProfileNotFound(data.name)
+
+
+def rename_profile(db: Session, name: str, new_name: str) -> dict:
+    """Rename a profile; raise ProfileNotFound / ProfileNameConflict as appropriate."""
+    profiles = get_profiles(db)
+    key = _name_key(name)
+    new_key = _name_key(new_name)
+    if new_key != key and any(_name_key(p["name"]) == new_key for p in profiles):
+        raise ProfileNameConflict(new_name)
+    for p in profiles:
+        if _name_key(p["name"]) == key:
+            p["name"] = new_name.strip()
+            _persist_profiles(db, profiles)
+            return dict(p)
+    raise ProfileNotFound(name)
+
+
+def delete_profile(db: Session, name: str) -> None:
+    """Delete a profile by name; raise ProfileNotFound if missing."""
+    profiles = get_profiles(db)
+    key = _name_key(name)
+    remaining = [p for p in profiles if _name_key(p["name"]) != key]
+    if len(remaining) == len(profiles):
+        raise ProfileNotFound(name)
+    _persist_profiles(db, remaining)

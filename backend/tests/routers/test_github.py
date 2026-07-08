@@ -47,6 +47,7 @@ _POSTED_OK = PostedReviewResult(
 
 # ── GET /api/github/repo ──────────────────────────────────────────────────────
 
+
 def test_get_repo():
     repo_info = RepoInfo(configured=True, repo="owner/repo", owner="owner", name="repo")
     with patch("backend.routers.github.github_service.get_repo_info", return_value=repo_info):
@@ -58,6 +59,7 @@ def test_get_repo():
 
 
 # ── GET /api/github/branches ──────────────────────────────────────────────────
+
 
 def test_get_branches():
     branches_resp = BranchesResponse(
@@ -74,6 +76,7 @@ def test_get_branches():
 
 
 # ── GET /api/github/pull-requests ─────────────────────────────────────────────
+
 
 def test_get_pull_requests():
     prs_resp = PullRequestsResponse(
@@ -99,6 +102,7 @@ def test_get_pull_requests_with_state():
 
 # ── GET /api/github/pull-requests/{number}/review ─────────────────────────────
 
+
 def test_review_pull_request():
     review = CodeReviewResult(repo="owner/repo", target="PR #42", summary="ok")
     with patch(
@@ -111,6 +115,7 @@ def test_review_pull_request():
 
 # ── GET /api/github/branches/review ──────────────────────────────────────────
 
+
 def test_review_branch():
     review = CodeReviewResult(repo="owner/repo", target="branch main", summary="ok")
     with patch("backend.routers.github.code_review_service.review_branch", return_value=review):
@@ -121,10 +126,13 @@ def test_review_branch():
 
 # ── T006: POST /api/github/pull-requests/{number}/review/comments ─────────────
 
+
 def test_post_review_comments_success():
     """T006: 200 with posted=True when service succeeds."""
-    with patch("backend.routers.github.code_review_service.post_review_to_pull_request",
-               return_value=_POSTED_OK):
+    with patch(
+        "backend.routers.github.code_review_service.post_review_to_pull_request",
+        return_value=_POSTED_OK,
+    ):
         resp = client.post("/api/github/pull-requests/42/review/comments", json=_REVIEW_BODY)
 
     assert resp.status_code == 200
@@ -137,8 +145,10 @@ def test_post_review_comments_success():
 
 def test_post_review_comments_passes_number_and_body():
     """T006: service receives the correct PR number and CodeReviewResult."""
-    with patch("backend.routers.github.code_review_service.post_review_to_pull_request",
-               return_value=_POSTED_OK) as mock_svc:
+    with patch(
+        "backend.routers.github.code_review_service.post_review_to_pull_request",
+        return_value=_POSTED_OK,
+    ) as mock_svc:
         client.post("/api/github/pull-requests/99/review/comments", json=_REVIEW_BODY)
 
     call_args = mock_svc.call_args
@@ -148,15 +158,20 @@ def test_post_review_comments_passes_number_and_body():
 
 # ── T013: error / degradation contract ───────────────────────────────────────
 
+
 def test_post_review_comments_empty_findings_returns_posted_false():
     """T013: empty findings → 200 with posted=False and populated error."""
     not_posted = PostedReviewResult(
-        repo="owner/repo", target="PR #42", posted=False,
+        repo="owner/repo",
+        target="PR #42",
+        posted=False,
         error="Nothing to post: no findings.",
     )
     body_no_findings = {**_REVIEW_BODY, "findings": []}
-    with patch("backend.routers.github.code_review_service.post_review_to_pull_request",
-               return_value=not_posted):
+    with patch(
+        "backend.routers.github.code_review_service.post_review_to_pull_request",
+        return_value=not_posted,
+    ):
         resp = client.post("/api/github/pull-requests/42/review/comments", json=body_no_findings)
 
     assert resp.status_code == 200
@@ -168,11 +183,15 @@ def test_post_review_comments_empty_findings_returns_posted_false():
 def test_post_review_comments_unconfigured_returns_posted_false():
     """T013: GITHUB_REPO unset → 200 with posted=False."""
     not_posted = PostedReviewResult(
-        repo="", target="PR #42", posted=False,
+        repo="",
+        target="PR #42",
+        posted=False,
         error="GITHUB_REPO is not configured.",
     )
-    with patch("backend.routers.github.code_review_service.post_review_to_pull_request",
-               return_value=not_posted):
+    with patch(
+        "backend.routers.github.code_review_service.post_review_to_pull_request",
+        return_value=not_posted,
+    ):
         resp = client.post("/api/github/pull-requests/42/review/comments", json=_REVIEW_BODY)
 
     assert resp.status_code == 200

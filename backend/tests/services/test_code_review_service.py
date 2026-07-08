@@ -27,6 +27,7 @@ _REVIEW_JSON = """{
 
 # ── Existing review functions ──────────────────────────────────────────────────
 
+
 def test_review_pull_request_not_configured():
     original = settings.github_repo
     try:
@@ -54,10 +55,12 @@ def test_review_pull_request_success():
     try:
         settings.github_repo = "owner/repo"
         settings.github_token = "fake-token"
-        diff = "diff --git a/app/db.py b/app/db.py\n+cursor.execute(f\"SELECT * FROM users\")"
+        diff = 'diff --git a/app/db.py b/app/db.py\n+cursor.execute(f"SELECT * FROM users")'
 
-        with patch("backend.services.code_review_service.call_github_tool", return_value=diff), \
-             patch("backend.services.code_review_service.get_llm") as mock_get_llm:
+        with (
+            patch("backend.services.code_review_service.call_github_tool", return_value=diff),
+            patch("backend.services.code_review_service.get_llm") as mock_get_llm,
+        ):
             mock_get_llm.return_value.invoke.return_value = _REVIEW_JSON
             result = code_review_service.review_pull_request(42)
 
@@ -224,28 +227,37 @@ def test_review_diff_findings_without_title_skipped():
 
 # ── Helpers: _is_anchorable and _format_comment_body ──────────────────────────
 
+
 def _finding(**kwargs) -> CodeReviewFinding:
     defaults = {"severity": "high", "category": "bug", "title": "T", "description": "D"}
     return CodeReviewFinding(**{**defaults, **kwargs})
 
 
-@pytest.mark.parametrize("file,line,expected", [
-    ("app/db.py", 42, True),
-    ("app/db.py", 1, True),
-    ("app/db.py", 0, False),
-    ("app/db.py", -1, False),
-    ("app/db.py", None, False),
-    ("", 42, False),
-    (None, 42, False),
-])
+@pytest.mark.parametrize(
+    "file,line,expected",
+    [
+        ("app/db.py", 42, True),
+        ("app/db.py", 1, True),
+        ("app/db.py", 0, False),
+        ("app/db.py", -1, False),
+        ("app/db.py", None, False),
+        ("", 42, False),
+        (None, 42, False),
+    ],
+)
 def test_is_anchorable(file, line, expected):
     f = _finding(file=file, line=line)
     assert code_review_service._is_anchorable(f) is expected
 
 
 def test_format_comment_body_with_recommendation():
-    f = _finding(severity="high", category="sql_injection", title="SQL Injection",
-                 description="User input directly in query.", recommendation="Use params.")
+    f = _finding(
+        severity="high",
+        category="sql_injection",
+        title="SQL Injection",
+        description="User input directly in query.",
+        recommendation="Use params.",
+    )
     body = code_review_service._format_comment_body(f)
     assert "[HIGH] SQL Injection" in body
     assert "sql_injection" in body
@@ -262,6 +274,7 @@ def test_format_comment_body_without_recommendation():
 
 
 # ── T005: post_review_to_pull_request — happy path ───────────────────────────
+
 
 def test_post_review_not_configured():
     original = settings.github_repo
@@ -319,15 +332,17 @@ def test_post_review_happy_path_all_anchorable():
             _finding(file="a.py", line=10, title="F1"),
             _finding(file="b.py", line=20, title="F2"),
         ]
-        review = CodeReviewResult(repo="owner/repo", target="PR #42",
-                                  summary="Two issues found.", findings=findings)
+        review = CodeReviewResult(
+            repo="owner/repo", target="PR #42", summary="Two issues found.", findings=findings
+        )
 
         create_resp = {"id": 999}
         submit_resp = {"html_url": "https://github.com/owner/repo/pull/42#pullrequestreview-999"}
         mcp_side_effects = [create_resp, None, None, submit_resp]
 
-        with patch("backend.services.code_review_service.call_github_tool",
-                   side_effect=mcp_side_effects) as mock_mcp:
+        with patch(
+            "backend.services.code_review_service.call_github_tool", side_effect=mcp_side_effects
+        ) as mock_mcp:
             result = code_review_service.post_review_to_pull_request(42, review)
 
         assert result.posted is True
@@ -361,8 +376,9 @@ def test_post_review_review_url_fallback():
         review = CodeReviewResult(repo="owner/repo", target="PR #5", findings=findings)
         mcp_side_effects = [{"id": 1}, None, {}]
 
-        with patch("backend.services.code_review_service.call_github_tool",
-                   side_effect=mcp_side_effects):
+        with patch(
+            "backend.services.code_review_service.call_github_tool", side_effect=mcp_side_effects
+        ):
             result = code_review_service.post_review_to_pull_request(5, review)
 
         assert result.posted is True
@@ -372,6 +388,7 @@ def test_post_review_review_url_fallback():
 
 
 # ── T010: mixed / non-anchorable findings ────────────────────────────────────
+
 
 def test_post_review_mixed_findings():
     """T010a: mixed list → correct inline_comment_count and summary_only_count."""
@@ -384,12 +401,18 @@ def test_post_review_mixed_findings():
             _finding(file="a.py", line=10, title="Inline"),
             _finding(file=None, line=None, title="Non-inline"),
         ]
-        review = CodeReviewResult(repo="owner/repo", target="PR #42",
-                                  summary="Summary.", findings=findings)
-        mcp_side_effects = [{"id": 1}, None, {"html_url": "https://github.com/owner/repo/pull/42#review-1"}]
+        review = CodeReviewResult(
+            repo="owner/repo", target="PR #42", summary="Summary.", findings=findings
+        )
+        mcp_side_effects = [
+            {"id": 1},
+            None,
+            {"html_url": "https://github.com/owner/repo/pull/42#review-1"},
+        ]
 
-        with patch("backend.services.code_review_service.call_github_tool",
-                   side_effect=mcp_side_effects) as mock_mcp:
+        with patch(
+            "backend.services.code_review_service.call_github_tool", side_effect=mcp_side_effects
+        ) as mock_mcp:
             result = code_review_service.post_review_to_pull_request(42, review)
 
         assert result.posted is True
@@ -415,12 +438,17 @@ def test_post_review_all_non_anchorable():
             _finding(file=None, line=None, title="NI-1"),
             _finding(file="", line=0, title="NI-2"),
         ]
-        review = CodeReviewResult(repo="owner/repo", target="PR #42",
-                                  summary="Summary.", findings=findings)
-        mcp_side_effects = [{"id": 1}, {"html_url": "https://github.com/owner/repo/pull/42#review-1"}]
+        review = CodeReviewResult(
+            repo="owner/repo", target="PR #42", summary="Summary.", findings=findings
+        )
+        mcp_side_effects = [
+            {"id": 1},
+            {"html_url": "https://github.com/owner/repo/pull/42#review-1"},
+        ]
 
-        with patch("backend.services.code_review_service.call_github_tool",
-                   side_effect=mcp_side_effects) as mock_mcp:
+        with patch(
+            "backend.services.code_review_service.call_github_tool", side_effect=mcp_side_effects
+        ) as mock_mcp:
             result = code_review_service.post_review_to_pull_request(42, review)
 
         assert result.posted is True
@@ -437,6 +465,7 @@ def test_post_review_all_non_anchorable():
 
 # ── T012: error handling / cleanup ───────────────────────────────────────────
 
+
 def test_post_review_mcp_failure_cleans_up_pending_review():
     """T012b: failure after create → delete pending review, return posted=False."""
     original_repo, original_token = settings.github_repo, settings.github_token
@@ -444,8 +473,9 @@ def test_post_review_mcp_failure_cleans_up_pending_review():
         settings.github_repo = "owner/repo"
         settings.github_token = "fake-token"
         findings = [_finding(file="a.py", line=1, title="X")]
-        review = CodeReviewResult(repo="owner/repo", target="PR #42",
-                                  summary="Summary.", findings=findings)
+        review = CodeReviewResult(
+            repo="owner/repo", target="PR #42", summary="Summary.", findings=findings
+        )
 
         create_resp = {"id": 777}
         mcp_side_effects = [
@@ -453,8 +483,9 @@ def test_post_review_mcp_failure_cleans_up_pending_review():
             RuntimeError("comment rejected"),
         ]
 
-        with patch("backend.services.code_review_service.call_github_tool",
-                   side_effect=mcp_side_effects) as mock_mcp:
+        with patch(
+            "backend.services.code_review_service.call_github_tool", side_effect=mcp_side_effects
+        ) as mock_mcp:
             result = code_review_service.post_review_to_pull_request(42, review)
 
         assert result.posted is False
@@ -483,8 +514,9 @@ def test_post_review_delete_also_fails():
             RuntimeError("delete failed too"),
         ]
 
-        with patch("backend.services.code_review_service.call_github_tool",
-                   side_effect=mcp_side_effects):
+        with patch(
+            "backend.services.code_review_service.call_github_tool", side_effect=mcp_side_effects
+        ):
             result = code_review_service.post_review_to_pull_request(42, review)
 
         assert result.posted is False
@@ -507,13 +539,15 @@ def test_post_review_mcp_failure_no_pending_review_id():
             RuntimeError("add_comment failed"),
         ]
 
-        with patch("backend.services.code_review_service.call_github_tool",
-                   side_effect=mcp_side_effects) as mock_mcp:
+        with patch(
+            "backend.services.code_review_service.call_github_tool", side_effect=mcp_side_effects
+        ) as mock_mcp:
             result = code_review_service.post_review_to_pull_request(42, review)
 
         assert result.posted is False
         delete_calls = [
-            c for c in mock_mcp.call_args_list
+            c
+            for c in mock_mcp.call_args_list
             if c[0][0] == "pull_request_review_write" and c[0][1].get("method") == "delete"
         ]
         assert len(delete_calls) == 0
@@ -533,13 +567,15 @@ def test_post_review_create_returns_non_dict():
             "pending-review-as-string",
             RuntimeError("add_comment failed"),
         ]
-        with patch("backend.services.code_review_service.call_github_tool",
-                   side_effect=mcp_side_effects) as mock_mcp:
+        with patch(
+            "backend.services.code_review_service.call_github_tool", side_effect=mcp_side_effects
+        ) as mock_mcp:
             result = code_review_service.post_review_to_pull_request(42, review)
 
         assert result.posted is False
         delete_calls = [
-            c for c in mock_mcp.call_args_list
+            c
+            for c in mock_mcp.call_args_list
             if c[0][0] == "pull_request_review_write" and c[0][1].get("method") == "delete"
         ]
         assert len(delete_calls) == 0
@@ -557,8 +593,9 @@ def test_post_review_submit_returns_non_dict():
         review = CodeReviewResult(repo="owner/repo", target="PR #7", findings=findings)
         mcp_side_effects = [{"id": 1}, None, "ok"]
 
-        with patch("backend.services.code_review_service.call_github_tool",
-                   side_effect=mcp_side_effects):
+        with patch(
+            "backend.services.code_review_service.call_github_tool", side_effect=mcp_side_effects
+        ):
             result = code_review_service.post_review_to_pull_request(7, review)
 
         assert result.posted is True
@@ -577,8 +614,9 @@ def test_post_review_submit_returns_url_field():
         review = CodeReviewResult(repo="owner/repo", target="PR #42", findings=findings)
         mcp_side_effects = [{"id": 1}, None, {"url": "https://api.github.com/reviews/1"}]
 
-        with patch("backend.services.code_review_service.call_github_tool",
-                   side_effect=mcp_side_effects):
+        with patch(
+            "backend.services.code_review_service.call_github_tool", side_effect=mcp_side_effects
+        ):
             result = code_review_service.post_review_to_pull_request(42, review)
 
         assert result.posted is True

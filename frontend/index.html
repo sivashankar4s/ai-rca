@@ -3,16 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI Root Cause Analyzer</title>
+  <title>Sentinel AI</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
 <header>
-  <h1>AI Root Cause Analyzer</h1>
+  <h1>Sentinel AI</h1>
   <nav class="app-nav" aria-label="Main navigation">
     <button class="nav-tab active" id="nav-rca" type="button">RCA</button>
     <button class="nav-tab" id="nav-github" type="button">GitHub</button>
+    <button class="nav-tab" id="nav-health" type="button">Health</button>
     <button class="nav-tab" id="nav-config" type="button">Config</button>
   </nav>
 </header>
@@ -161,6 +162,78 @@
 
   </section><!-- /#github-view -->
 
+  <!-- ══ Health view ════════════════════════════════════════════════════════ -->
+  <section id="health-view" class="view hidden" aria-label="Service health">
+    <div class="health-header">
+      <div class="health-title-row">
+        <h2 class="section-title">Service Health</h2>
+        <span class="health-total-badge hidden" id="health-total"></span>
+      </div>
+      <div class="health-controls">
+        <div class="field">
+          <label for="health-profile">Profile</label>
+          <select id="health-profile" aria-label="Health profile"></select>
+        </div>
+        <div class="field">
+          <label for="health-window">Failures in</label>
+          <select id="health-window" aria-label="Lookback window">
+            <option value="1h">Last 1 Hour</option>
+            <option value="24h" selected>Last 24 Hours</option>
+            <option value="7d">Last 7 Days</option>
+            <option value="custom">Custom range…</option>
+          </select>
+        </div>
+        <div class="field health-range hidden" id="health-range">
+          <label for="health-start">From</label>
+          <input type="date" id="health-start">
+        </div>
+        <div class="field health-range hidden" id="health-range-end">
+          <label for="health-end">To</label>
+          <input type="date" id="health-end">
+        </div>
+        <button class="btn btn-sm" id="health-refresh" type="button">
+          <span id="health-spinner" class="spinner hidden"></span>
+          Refresh
+        </button>
+      </div>
+    </div>
+    <div class="health-status" id="health-status"></div>
+    <div class="health-grid" id="health-grid"></div>
+
+    <!-- Drill-down: run history + failure reasons for one resource -->
+    <div class="health-modal hidden" id="health-detail-modal" role="dialog" aria-modal="true" aria-labelledby="health-detail-title">
+      <div class="health-modal-box">
+        <div class="health-modal-head">
+          <div>
+            <span class="health-card-type" id="health-detail-type"></span>
+            <h3 class="health-modal-title" id="health-detail-title"></h3>
+          </div>
+          <button class="health-modal-close" id="health-detail-close" type="button" aria-label="Close">&times;</button>
+        </div>
+        <div class="health-modal-controls">
+          <div class="field">
+            <label for="health-detail-start">From</label>
+            <input type="date" id="health-detail-start">
+          </div>
+          <div class="field">
+            <label for="health-detail-end">To</label>
+            <input type="date" id="health-detail-end">
+          </div>
+          <button class="btn btn-sm" id="health-detail-load" type="button">
+            <span id="health-detail-spinner" class="spinner hidden"></span>
+            Load history
+          </button>
+          <button class="btn btn-sm btn-primary" id="health-detail-fetch-failures" type="button">
+            <span id="health-failures-spinner" class="spinner hidden"></span>
+            Fetch Failures
+          </button>
+        </div>
+        <div class="health-modal-body" id="health-detail-body"></div>
+        <div class="health-modal-failures" id="health-detail-failures"></div>
+      </div>
+    </div>
+  </section><!-- /#health-view -->
+
   <!-- ══ Config view ════════════════════════════════════════════════════════ -->
   <section id="config-view" class="view hidden" aria-label="Configuration">
     <h2 class="section-title">Configuration</h2>
@@ -220,7 +293,7 @@
               </button>
               <div class="cw-lg-panel hidden" id="config-cw-lg-panel">
                 <div class="cw-lg-toolbar">
-                  <input type="text" id="config-cw-lg-search" placeholder="Filter log groups…" autocomplete="off" />
+                  <input type="text" id="config-cw-lg-search" placeholder="Filter log groups… (use | for AND, e.g. onedbm|db11204)" autocomplete="off" />
                   <button type="button" class="btn-sm" id="config-cw-lg-refresh">Refresh</button>
                 </div>
                 <div class="cw-lg-status" id="config-cw-lg-status">Save AWS credentials to load log groups.</div>
@@ -263,6 +336,101 @@
           <button class="btn btn-primary" id="config-athena-save" type="submit">Save Athena Config</button>
         </form>
         <div class="config-feedback hidden" id="config-athena-feedback"></div>
+      </div>
+
+      <!-- Service Health card -->
+      <div class="config-card" id="config-health-card">
+        <div class="config-card-header">
+          <h3>Service Health</h3>
+          <span class="config-status-badge" id="health-status-badge">Not Configured</span>
+        </div>
+        <p class="config-note">Group the AWS resources to monitor into named <strong>profiles</strong> — switch between them on the Health tab. Save AWS credentials first to load choices.</p>
+
+        <div class="config-field">
+          <label for="config-profile-select">Profile</label>
+          <div class="health-profile-controls">
+            <select id="config-profile-select" aria-label="Health profile"></select>
+            <button type="button" class="btn-sm" id="config-profile-new">+ New</button>
+            <button type="button" class="btn-sm" id="config-profile-rename">Rename</button>
+            <button type="button" class="btn-sm" id="config-profile-delete">Delete</button>
+          </div>
+          <div class="config-profile-empty hidden" id="config-profile-empty">No profiles yet — create one to start monitoring.</div>
+        </div>
+
+        <div class="config-field">
+          <label>Glue Jobs</label>
+          <div class="cw-lg-dropdown" id="hp-glue_jobs-dropdown">
+            <button type="button" class="cw-lg-toggle" id="hp-glue_jobs-toggle">
+              <span id="hp-glue_jobs-summary">Select Glue jobs</span>
+              <span class="cw-lg-caret" aria-hidden="true">▾</span>
+            </button>
+            <div class="cw-lg-panel hidden" id="hp-glue_jobs-panel">
+              <div class="cw-lg-toolbar">
+                <input type="text" id="hp-glue_jobs-search" placeholder="Filter…" autocomplete="off" />
+                <button type="button" class="btn-sm" id="hp-glue_jobs-refresh">Refresh</button>
+              </div>
+              <div class="cw-lg-status" id="hp-glue_jobs-status">Save AWS credentials to load.</div>
+              <div class="cw-lg-list" id="hp-glue_jobs-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="config-field">
+          <label>Glue Workflows</label>
+          <div class="cw-lg-dropdown" id="hp-glue_workflows-dropdown">
+            <button type="button" class="cw-lg-toggle" id="hp-glue_workflows-toggle">
+              <span id="hp-glue_workflows-summary">Select Glue workflows</span>
+              <span class="cw-lg-caret" aria-hidden="true">▾</span>
+            </button>
+            <div class="cw-lg-panel hidden" id="hp-glue_workflows-panel">
+              <div class="cw-lg-toolbar">
+                <input type="text" id="hp-glue_workflows-search" placeholder="Filter…" autocomplete="off" />
+                <button type="button" class="btn-sm" id="hp-glue_workflows-refresh">Refresh</button>
+              </div>
+              <div class="cw-lg-status" id="hp-glue_workflows-status">Save AWS credentials to load.</div>
+              <div class="cw-lg-list" id="hp-glue_workflows-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="config-field">
+          <label>Lambda Functions</label>
+          <div class="cw-lg-dropdown" id="hp-lambda_functions-dropdown">
+            <button type="button" class="cw-lg-toggle" id="hp-lambda_functions-toggle">
+              <span id="hp-lambda_functions-summary">Select Lambda functions</span>
+              <span class="cw-lg-caret" aria-hidden="true">▾</span>
+            </button>
+            <div class="cw-lg-panel hidden" id="hp-lambda_functions-panel">
+              <div class="cw-lg-toolbar">
+                <input type="text" id="hp-lambda_functions-search" placeholder="Filter…" autocomplete="off" />
+                <button type="button" class="btn-sm" id="hp-lambda_functions-refresh">Refresh</button>
+              </div>
+              <div class="cw-lg-status" id="hp-lambda_functions-status">Save AWS credentials to load.</div>
+              <div class="cw-lg-list" id="hp-lambda_functions-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="config-field">
+          <label>DataSync Tasks</label>
+          <div class="cw-lg-dropdown" id="hp-datasync_tasks-dropdown">
+            <button type="button" class="cw-lg-toggle" id="hp-datasync_tasks-toggle">
+              <span id="hp-datasync_tasks-summary">Select DataSync tasks</span>
+              <span class="cw-lg-caret" aria-hidden="true">▾</span>
+            </button>
+            <div class="cw-lg-panel hidden" id="hp-datasync_tasks-panel">
+              <div class="cw-lg-toolbar">
+                <input type="text" id="hp-datasync_tasks-search" placeholder="Filter…" autocomplete="off" />
+                <button type="button" class="btn-sm" id="hp-datasync_tasks-refresh">Refresh</button>
+              </div>
+              <div class="cw-lg-status" id="hp-datasync_tasks-status">Save AWS credentials to load.</div>
+              <div class="cw-lg-list" id="hp-datasync_tasks-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="config-health-save" type="button">Save Profile</button>
+        <div class="config-feedback hidden" id="config-health-feedback"></div>
       </div>
 
       <!-- GitHub MCP Settings card -->

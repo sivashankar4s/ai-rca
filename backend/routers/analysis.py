@@ -43,9 +43,7 @@ async def get_providers() -> ProvidersResponse:
 
 
 @router.post("/failures", response_model=FailuresResponse)
-async def post_failures(
-    body: FailuresRequest, db: Session = Depends(get_db)
-) -> FailuresResponse:
+async def post_failures(body: FailuresRequest, db: Session = Depends(get_db)) -> FailuresResponse:
     """Fetch FAILED records, persist them, and return the (optionally trace-filtered) set."""
     if body.time_range == TimeRange.CUSTOM:
         start, end = body.start, body.end
