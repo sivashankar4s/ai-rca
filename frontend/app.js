@@ -1045,6 +1045,12 @@ const healthStartEl = document.getElementById('health-start');
 const healthEndEl = document.getElementById('health-end');
 const healthRangeEls = [document.getElementById('health-range'), document.getElementById('health-range-end')];
 const healthProfileSel = document.getElementById('health-profile');
+const healthExportBtn = document.getElementById('health-export');
+const healthExportSpinner = document.getElementById('health-export-spinner');
+
+// The actual lookback bounds + profile of the currently displayed results, captured
+// from the last successful load so the CSV export queries the same range.
+let _healthRange = null;  // { start, end, profile }
 
 async function loadHealthTabProfiles() {
   const previous = healthProfileSel.value;
@@ -1131,8 +1137,10 @@ async function loadServiceHealth() {
       const results = data.results || [];
       _renderHealthCards(results);
       _renderHealthTotal(data.total_failures || 0, results.length);
+      _healthRange = { start: data.start, end: data.end, profile: data.profile || healthProfileSel.value };
     } else {
       healthGrid.innerHTML = '';
+      _healthRange = null;
       _renderHealthTotal(0, 0);
       healthStatusEl.textContent = data.detail ? `Failed: ${JSON.stringify(data.detail)}` : 'Failed to load health.';
     }
@@ -1142,6 +1150,97 @@ async function loadServiceHealth() {
   } finally {
     healthSpinner.classList.add('hidden');
     healthRefreshBtn.disabled = false;
+  }
+}
+
+// ── CSV export: server details + failure count + unique failure messages ────────
+
+function _csvCell(v) {
+  const s = v == null ? '' : String(v);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function _downloadCsv(filename, rows) {
+  // Prepend a BOM so Excel opens the UTF-8 file with the right encoding.
+  const csv = '﻿' + rows.map(r => r.map(_csvCell).join(',')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+// Fetch failure logs for one server and collapse them to unique messages, keyed by
+// signature_hash when present (else the message text), each with an occurrence count.
+async function _fetchUniqueFailures(server, range) {
+  const resp = await fetch('/api/health/services/failures', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      service_type: server.service_type,
+      id: server.id,
+      label: server.label,
+      start: range.start,
+      end: range.end,
+    }),
+  });
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data.detail ? JSON.stringify(data.detail) : 'fetch failed');
+  const byKey = new Map();
+  for (const r of data.records || []) {
+    const msg = (r.message || '(no message)').trim();
+    const key = r.signature_hash || msg;
+    const entry = byKey.get(key);
+    if (entry) entry.count += 1;
+    else byKey.set(key, { message: msg, count: 1 });
+  }
+  return [...byKey.values()];
+}
+
+async function exportHealthCsv() {
+  if (!_healthResults.length || !_healthRange) {
+    healthStatusEl.textContent = 'Load health results before exporting.';
+    return;
+  }
+  healthExportBtn.disabled = true;
+  healthExportSpinner.classList.remove('hidden');
+  const profile = _healthRange.profile || '';
+  const rows = [[
+    'Profile', 'Service Type', 'Server', 'Server ID', 'Status',
+    'Failure Count', 'Unique Failure Count', 'Failure Message', 'Occurrences',
+  ]];
+  try {
+    for (let i = 0; i < _healthResults.length; i++) {
+      const s = _healthResults[i];
+      healthStatusEl.textContent = `Exporting… fetching failures ${i + 1}/${_healthResults.length}`;
+      const typeLabel = HEALTH_SERVICE_LABELS[s.service_type] || s.service_type;
+      let unique = [];
+      let note = '';
+      try {
+        unique = await _fetchUniqueFailures(s, _healthRange);
+      } catch (err) {
+        note = `fetch failed: ${err.message}`;
+      }
+      const base = [profile, typeLabel, s.label, s.id, s.status, s.failure_count, unique.length];
+      if (unique.length === 0) {
+        rows.push([...base, note, note ? '' : 0]);
+      } else {
+        for (const u of unique) rows.push([...base, u.message, u.count]);
+      }
+    }
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    const safeProfile = (profile || 'health').replace(/[^\w.-]+/g, '_');
+    _downloadCsv(`service-health-${safeProfile}-${stamp}.csv`, rows);
+    healthStatusEl.textContent = `Exported ${_healthResults.length} server(s) to CSV.`;
+  } catch (err) {
+    healthStatusEl.textContent = `Export failed: ${err.message}`;
+  } finally {
+    healthExportBtn.disabled = false;
+    healthExportSpinner.classList.add('hidden');
   }
 }
 
@@ -1163,6 +1262,7 @@ healthStartEl.addEventListener('change', loadServiceHealth);
 healthEndEl.addEventListener('change', loadServiceHealth);
 healthProfileSel.addEventListener('change', loadServiceHealth);
 healthRefreshBtn.addEventListener('click', loadServiceHealth);
+healthExportBtn.addEventListener('click', exportHealthCsv);
 
 // ── Drill-down: run history + failure reasons for one resource ──────────────
 
