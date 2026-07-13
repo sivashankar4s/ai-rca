@@ -30,8 +30,9 @@ def test_call_github_tool_returns_executor_result():
         mock_executor.__exit__ = MagicMock(return_value=False)
         mock_executor.submit.return_value = mock_future
 
-        with patch("backend.mcp.client.concurrent.futures.ThreadPoolExecutor",
-                   return_value=mock_executor):
+        with patch(
+            "backend.mcp.client.concurrent.futures.ThreadPoolExecutor", return_value=mock_executor
+        ):
             result = call_github_tool("some_tool", {"arg": "val"})
 
         assert result == {"key": "value"}

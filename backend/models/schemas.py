@@ -4,7 +4,7 @@ All structured data that crosses a function boundary more than once MUST use
 a Pydantic model (Constitution Principle I). No bare dicts in API handlers.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Literal
 
@@ -37,6 +37,7 @@ class FailureRecord(BaseModel):
     device_id: str | None = None
     error_code: str | None = None
     stage: str | None = None
+    message: str | None = None
     status: str | None = None
     event_created_ts: datetime | None = None
     event_inserted_ts: datetime | None = None
@@ -51,7 +52,8 @@ class FailuresRequest(BaseModel):
     component: str | None = None
     start: datetime | None = None
     end: datetime | None = None
-    data_source: Literal["athena", "postgres"] | None = None
+    data_source: Literal["athena", "postgres", "cloudwatch"] | None = None
+    trace_id: str | None = None
 
     @model_validator(mode="after")
     def _require_dates_for_custom(self) -> "FailuresRequest":
@@ -150,6 +152,7 @@ class AwsConfigStatus(BaseModel):
     configured: bool
     access_key_id: str | None = None
     secret_access_key: str | None = None
+    session_token: str | None = None
     region: str | None = None
 
 
@@ -160,14 +163,30 @@ class GithubMcpConfigStatus(BaseModel):
     default_branch: str | None = None
 
 
+class CloudWatchConfigStatus(BaseModel):
+    configured: bool
+    log_groups: list[str] = []
+    query_timeout: int | None = None
+
+
+class AthenaConfigStatus(BaseModel):
+    configured: bool
+    database: str | None = None
+    table: str | None = None
+
+
 class AppConfigRead(BaseModel):
     aws: AwsConfigStatus
     github_mcp: GithubMcpConfigStatus
+    cloudwatch: CloudWatchConfigStatus
+    athena: AthenaConfigStatus
+    health: "HealthConfigStatus"
 
 
 class AwsConfigUpdate(BaseModel):
     access_key_id: str
     secret_access_key: str
+    session_token: str | None = None
     region: str | None = None
 
     @field_validator("access_key_id")
@@ -209,6 +228,278 @@ class GithubMcpConfigUpdate(BaseModel):
         return v
 
 
+class CloudWatchConfigUpdate(BaseModel):
+    log_groups: list[str]
+    query_timeout: int | None = None
+
+    @field_validator("log_groups")
+    @classmethod
+    def _log_groups_nonempty(cls, v: list[str]) -> list[str]:
+        cleaned = [g.strip() for g in v if g.strip()]
+        if not cleaned:
+            raise ValueError("at least one log group is required")
+        return cleaned
+
+    @field_validator("query_timeout")
+    @classmethod
+    def _timeout_positive(cls, v: int | None) -> int | None:
+        if v is not None and v <= 0:
+            raise ValueError("query_timeout must be a positive number of seconds")
+        return v
+
+
+class AthenaConfigUpdate(BaseModel):
+    database: str
+    table: str
+
+    @field_validator("database", "table")
+    @classmethod
+    def _nonempty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("must not be empty")
+        return v.strip()
+
+
+class CloudWatchLogGroupsResponse(BaseModel):
+    """Log groups discovered from AWS for the CloudWatch config picker."""
+
+    log_groups: list[str]
+
+
+# ── Service Health Dashboard (feature 021) ──────────────────────────────────────
+
+
+class HealthStatus(StrEnum):
+    """Current state of a monitored resource."""
+
+    UP = "up"
+    DOWN = "down"
+    UNKNOWN = "unknown"
+
+
+class HealthWindow(StrEnum):
+    """Failure-count lookback window offered on the Health tab."""
+
+    H1 = "1h"
+    H24 = "24h"
+    D7 = "7d"
+
+    @property
+    def delta(self) -> timedelta:
+        return {
+            HealthWindow.H1: timedelta(hours=1),
+            HealthWindow.H24: timedelta(hours=24),
+            HealthWindow.D7: timedelta(days=7),
+        }[self]
+
+
+class HealthServiceType(StrEnum):
+    """The AWS service types the dashboard checks."""
+
+    GLUE_JOB = "glue_job"
+    GLUE_WORKFLOW = "glue_workflow"
+    LAMBDA_FUNCTION = "lambda_function"
+    DATASYNC_TASK = "datasync_task"
+
+
+class ServiceHealth(BaseModel):
+    """Computed health of one monitored resource at check time (transient)."""
+
+    service_type: HealthServiceType
+    id: str
+    label: str
+    status: HealthStatus
+    failure_count: int = 0
+    last_activity_ts: datetime | None = None
+    detail: str | None = None
+
+    @field_validator("failure_count")
+    @classmethod
+    def _non_negative(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError("failure_count must be >= 0")
+        return v
+
+
+class ServiceHealthResponse(BaseModel):
+    """Response body for GET /api/health/services.
+
+    ``window`` is the preset used, or ``None`` for a custom date range. ``start``/``end``
+    are the actual lookback bounds the failure counts were computed over.
+    """
+
+    window: HealthWindow | None = None
+    profile: str | None = None
+    generated_at: datetime
+    start: datetime
+    end: datetime
+    results: list[ServiceHealth]
+    total_failures: int = 0
+
+
+# ── Drill-down: per-resource run history + failure reasons ──────────────────────
+
+_MAX_DETAIL_DAYS = 31
+
+
+class HealthRun(BaseModel):
+    """A single run/execution of a Glue job, Glue workflow, or DataSync task."""
+
+    run_id: str | None = None
+    status: str
+    is_failure: bool = False
+    started_at: datetime | None = None
+    ended_at: datetime | None = None
+    detail: str | None = None
+
+
+class ServiceHealthDetail(BaseModel):
+    """Drill-down run history for one resource over a selected date range.
+
+    ``runs`` holds native runs for Glue jobs/workflows and DataSync tasks, and failed
+    invocations (from CloudWatch Logs) for Lambda. ``detail`` carries an explanation
+    when the lookup degraded or found nothing.
+    """
+
+    service_type: HealthServiceType
+    id: str
+    label: str
+    start: datetime
+    end: datetime
+    runs: list[HealthRun] = []
+    detail: str | None = None
+
+
+class HealthDetailRequest(BaseModel):
+    """Request body for the drill-down runs + fetch-failures endpoints."""
+
+    service_type: HealthServiceType
+    id: str
+    label: str | None = None
+    start: datetime
+    end: datetime
+
+    @model_validator(mode="after")
+    def _valid_range(self) -> "HealthDetailRequest":
+        if self.start >= self.end:
+            raise ValueError("start must be before end")
+        if self.end - self.start > timedelta(days=_MAX_DETAIL_DAYS):
+            raise ValueError(f"date range must not exceed {_MAX_DETAIL_DAYS} days")
+        return self
+
+
+class HealthResource(BaseModel):
+    """One selectable resource returned by a discovery endpoint / stored on save."""
+
+    id: str
+    label: str
+
+
+class HealthResourcesResponse(BaseModel):
+    """Response body for the Config-page health discovery endpoints."""
+
+    resources: list[HealthResource]
+
+
+class HealthConfigStatus(BaseModel):
+    """Persisted selection of monitored resources (read side)."""
+
+    configured: bool
+    glue_jobs: list[str] = []
+    glue_workflows: list[str] = []
+    lambda_functions: list[str] = []
+    datasync_tasks: list[HealthResource] = []
+
+
+def _clean_names(v: list[str]) -> list[str]:
+    return [s.strip() for s in v if s.strip()]
+
+
+class HealthConfigUpdate(BaseModel):
+    """PATCH /api/config/health body — all lists optional, empty allowed."""
+
+    glue_jobs: list[str] = []
+    glue_workflows: list[str] = []
+    lambda_functions: list[str] = []
+    datasync_tasks: list[HealthResource] = []
+
+    @field_validator("glue_jobs", "glue_workflows", "lambda_functions")
+    @classmethod
+    def _strip_names(cls, v: list[str]) -> list[str]:
+        return _clean_names(v)
+
+
+# ── Health profiles — named sets of monitored resources ─────────────────────────
+
+
+def _clean_profile_name(v: str) -> str:
+    name = v.strip()
+    if not name:
+        raise ValueError("profile name must not be empty")
+    if len(name) > 64:
+        raise ValueError("profile name must be 64 characters or fewer")
+    return name
+
+
+class HealthProfile(BaseModel):
+    """One named set of monitored resources (read side)."""
+
+    name: str
+    glue_jobs: list[str] = []
+    glue_workflows: list[str] = []
+    lambda_functions: list[str] = []
+    datasync_tasks: list[HealthResource] = []
+
+
+class HealthProfilesResponse(BaseModel):
+    """Response body for GET /api/config/health/profiles."""
+
+    profiles: list[HealthProfile]
+
+
+class HealthProfileCreate(BaseModel):
+    """POST /api/config/health/profiles — create a new (empty) profile."""
+
+    name: str
+
+    @field_validator("name")
+    @classmethod
+    def _valid_name(cls, v: str) -> str:
+        return _clean_profile_name(v)
+
+
+class HealthProfileUpdate(BaseModel):
+    """PATCH /api/config/health/profiles — replace one profile's resources."""
+
+    name: str
+    glue_jobs: list[str] = []
+    glue_workflows: list[str] = []
+    lambda_functions: list[str] = []
+    datasync_tasks: list[HealthResource] = []
+
+    @field_validator("name")
+    @classmethod
+    def _valid_name(cls, v: str) -> str:
+        return _clean_profile_name(v)
+
+    @field_validator("glue_jobs", "glue_workflows", "lambda_functions")
+    @classmethod
+    def _strip_names(cls, v: list[str]) -> list[str]:
+        return _clean_names(v)
+
+
+class HealthProfileRename(BaseModel):
+    """POST /api/config/health/profiles/rename — rename an existing profile."""
+
+    name: str
+    new_name: str
+
+    @field_validator("name", "new_name")
+    @classmethod
+    def _valid_name(cls, v: str) -> str:
+        return _clean_profile_name(v)
+
+
 class ConfigSaveResult(BaseModel):
     success: bool
     message: str
@@ -243,5 +534,3 @@ class AnalyzeResponse(BaseModel):
 
     log_backend_used: str
     record_count: int
-
-

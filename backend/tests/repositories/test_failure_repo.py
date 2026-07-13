@@ -25,6 +25,7 @@ def _make_schema(
     organization: str = "org1",
     error_code: str = "E001",
     stage: str = "PROCESS",
+    message: str | None = None,
 ) -> FailureRecordSchema:
     return FailureRecordSchema(
         file_trace_id=file_trace_id,
@@ -35,6 +36,7 @@ def _make_schema(
         device_id="dev-1",
         error_code=error_code,
         stage=stage,
+        message=message,
         status="FAILED",
         event_created_ts=datetime(2026, 1, 1, 12, 0, 0, tzinfo=UTC),
         event_inserted_ts=datetime(2026, 1, 1, 12, 5, 0, tzinfo=UTC),
@@ -147,3 +149,33 @@ class TestUpsertFailureRecords:
         assert len(result2) == 1
         # Both rows must have distinct UUIDs
         assert result1[0].id != result2[0].id
+
+    def test_upsert_persists_message_on_insert(self, db_session: Session) -> None:
+        """The message column is persisted on insert."""
+        project = get_or_create_default_project(db_session)
+        result = upsert_failure_records(
+            db_session, project.id, [_make_schema("trace-msg", message="boom")]
+        )
+        assert result[0].message == "boom"
+
+    def test_upsert_updates_message_on_conflict(self, db_session: Session) -> None:
+        """On (project_id, file_trace_id) conflict, message is updated, no duplicate row."""
+        project = get_or_create_default_project(db_session)
+        upsert_failure_records(
+            db_session, project.id, [_make_schema("trace-msg-up", message="boom")]
+        )
+        result = upsert_failure_records(
+            db_session, project.id, [_make_schema("trace-msg-up", message="kaboom")]
+        )
+        rows = (
+            db_session.execute(
+                select(FailureRecordORM).where(
+                    FailureRecordORM.project_id == project.id,
+                    FailureRecordORM.file_trace_id == "trace-msg-up",
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert result[0].message == "kaboom"
+        assert len(rows) == 1

@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     athena_table: str = "failure_events"
     athena_output_bucket: str = ""
 
+    # CloudWatch Logs Insights data source — optional; empty log-group list
+    # disables the CloudWatch data source.
+    cloudwatch_log_groups: list[str] = []
+    cloudwatch_query_timeout: int = 60  # seconds to wait for a Logs Insights query
+
     # LLM — defaults allow the app to boot with no .env; real calls need keys set.
     llm_provider: str = "navify"
     llm_base_url: str = ""

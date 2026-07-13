@@ -55,6 +55,10 @@ class AppConfig(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
     aws_config: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     github_mcp_config: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    cloudwatch_config: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    athena_config: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    health_config: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    health_profiles: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -80,6 +84,7 @@ class FailureRecord(Base):
     device_id: Mapped[str | None] = mapped_column(String, nullable=True)
     error_code: Mapped[str | None] = mapped_column(String, nullable=True)
     stage: Mapped[str | None] = mapped_column(String, nullable=True)
+    message: Mapped[str | None] = mapped_column(String, nullable=True)
     event_created_ts: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

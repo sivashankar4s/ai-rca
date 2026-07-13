@@ -3,221 +3,471 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI Root Cause Analyzer</title>
+  <title>Sentinel AI</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
 <header>
-  <h1>AI Root Cause Analyzer</h1>
-  <span class="badge">US1</span>
+  <h1>Sentinel AI</h1>
   <nav class="app-nav" aria-label="Main navigation">
-    <button class="nav-tab active" id="nav-analysis" type="button">Analysis</button>
+    <button class="nav-tab active" id="nav-rca" type="button">RCA</button>
+    <button class="nav-tab" id="nav-github" type="button">GitHub</button>
+    <button class="nav-tab" id="nav-health" type="button">Health</button>
     <button class="nav-tab" id="nav-config" type="button">Config</button>
   </nav>
-  <span class="tagline">Powered by pluggable data, log &amp; AI providers</span>
 </header>
 
 <main>
 
-  <!-- ── Analysis view (default) ──────────────────────────────────────────── -->
-  <div id="analysis-view">
+  <!-- ══ RCA view ═══════════════════════════════════════════════════════════ -->
+  <section id="rca-view" class="view" aria-label="Root cause analysis">
 
-  <!-- Filter panel -->
-  <section class="filter-panel" aria-label="Failure search filters">
-
-    <div class="field">
-      <label for="time-range">Time Range</label>
-      <select id="time-range">
-        <option value="1h">Last 1 Hour</option>
-        <option value="1d" selected>Last 1 Day</option>
-        <option value="1w">Last 1 Week</option>
-        <option value="custom">Custom Range</option>
-      </select>
-    </div>
-
-    <div class="field">
-      <label for="data-source">Source</label>
-      <select id="data-source" aria-label="Data source">
-        <option value="">Loading…</option>
-      </select>
-    </div>
-
-    <div class="custom-dates" id="custom-dates">
+    <!-- Filter panel -->
+    <div class="filter-panel" aria-label="Failure search filters">
       <div class="field">
-        <label for="start-dt">Start</label>
-        <input type="datetime-local" id="start-dt" />
+        <label for="time-range">Time Range</label>
+        <select id="time-range">
+          <option value="1h">Last 1 Hour</option>
+          <option value="1d" selected>Last 1 Day</option>
+          <option value="1w">Last 1 Week</option>
+          <option value="custom">Custom Range</option>
+        </select>
       </div>
+
       <div class="field">
-        <label for="end-dt">End</label>
-        <input type="datetime-local" id="end-dt" />
-      </div>
-    </div>
-
-    <div class="field">
-      <label for="component">Component (optional)</label>
-      <input type="text" id="component" placeholder="e.g. dp-lz-s3-event-processor" style="min-width:260px" />
-    </div>
-
-    <button class="btn" id="fetch-btn" type="button">
-      <span id="fetch-spinner" class="spinner" style="display:none"></span>
-      Fetch Failures
-    </button>
-
-  </section>
-
-  <!-- Error banner -->
-  <div class="error-banner" id="error-banner" role="alert" style="display:none"></div>
-
-  <!-- Selection bar -->
-  <div class="selection-bar" id="selection-bar">
-    <span id="selection-count"></span>
-    <button class="clear-btn" id="clear-selection-btn" type="button">Clear selection</button>
-  </div>
-
-  <!-- Results header -->
-  <div class="results-header" id="results-header" style="display:none">
-    <div class="summary" id="results-summary"></div>
-    <div class="page-size-wrapper">
-      <label for="page-size">Rows per page:</label>
-      <select id="page-size">
-        <option value="10" selected>10</option>
-        <option value="25">25</option>
-        <option value="50">50</option>
-      </select>
-    </div>
-  </div>
-
-  <!-- Table / empty state -->
-  <div id="table-area"></div>
-
-  <!-- Pagination -->
-  <div class="pagination" id="pagination" style="display:none"></div>
-
-  <!-- ── GitHub Integration ────────────────────────────────────────────── -->
-  <section class="github-section" id="github-section" aria-label="GitHub integration">
-    <h2 class="section-title">GitHub — Source Code Intelligence</h2>
-
-    <div id="github-not-configured" class="github-notice hidden">
-      GitHub is not configured. Set <strong>GITHUB_REPO</strong> and <strong>GITHUB_TOKEN</strong>.
-    </div>
-
-    <div id="github-content">
-      <div class="github-subsection">
-        <div class="github-subsection-header">
-          <h3>Pull Requests</h3>
-          <div class="btn-group" id="github-pr-state-group">
-            <button class="btn btn-sm active" data-state="open">Open</button>
-            <button class="btn btn-sm" data-state="closed">Closed</button>
-            <button class="btn btn-sm" data-state="all">All</button>
-          </div>
-          <button class="btn btn-sm" id="github-prs-refresh" title="Refresh">&#8635;</button>
-        </div>
-        <div id="github-prs-list" class="github-list">
-          <p class="github-empty">Loading pull requests…</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Code review result panel (shared for PR and branch reviews) -->
-  <section class="code-review-section hidden" id="code-review-section" aria-label="Code review">
-    <div class="code-review-header">
-      <h2>AI Code Review — <span id="code-review-target"></span></h2>
-      <button class="btn btn-sm" id="code-review-close" title="Close">&#10005;</button>
-    </div>
-    <div id="code-review-body"></div>
-    <!-- Post to PR action (only rendered for PR reviews) -->
-    <div id="post-to-pr-panel" class="post-to-pr-panel hidden">
-      <button class="btn btn-primary" id="post-to-pr-btn" type="button">Post to PR</button>
-      <span id="post-to-pr-spinner" class="spinner hidden"></span>
-      <div id="post-to-pr-result" class="post-result hidden"></div>
-    </div>
-  </section>
-
-  </div><!-- /#analysis-view -->
-
-  <!-- ── Config view ───────────────────────────────────────────────────────── -->
-  <section id="config-section" class="hidden" aria-label="Configuration">
-    <h2 class="section-title">Configuration</h2>
-
-    <!-- AWS Credentials card -->
-    <div class="config-card" id="config-aws-card">
-      <div class="config-card-header">
-        <h3>AWS Credentials</h3>
-        <span class="config-status-badge" id="aws-status-badge">Not Configured</span>
-      </div>
-      <form id="config-aws-form" novalidate>
-        <div class="config-field">
-          <label for="config-aws-key-id">Access Key ID <span class="required">*</span></label>
-          <input type="text" id="config-aws-key-id" name="access_key_id"
-                 placeholder="AKIAIOSFODNN7EXAMPLE" autocomplete="off" />
-          <span class="config-field-error hidden" id="config-aws-key-id-error"></span>
-        </div>
-        <div class="config-field">
-          <label for="config-aws-secret">Secret Access Key <span class="required">*</span></label>
-          <input type="password" id="config-aws-secret" name="secret_access_key"
-                 placeholder="Your secret access key" autocomplete="new-password" />
-          <span class="config-field-error hidden" id="config-aws-secret-error"></span>
-        </div>
-        <div class="config-field">
-          <label for="config-aws-region">Region <span class="optional">(optional)</span></label>
-          <input type="text" id="config-aws-region" name="region"
-                 placeholder="us-east-1" autocomplete="off" />
-        </div>
-        <button class="btn btn-primary" id="config-aws-save" type="submit">Save AWS Config</button>
-      </form>
-      <div class="config-feedback hidden" id="config-aws-feedback"></div>
-    </div>
-
-    <!-- GitHub MCP Settings card -->
-    <div class="config-card" id="config-github-mcp-card">
-      <div class="config-card-header">
-        <h3>GitHub MCP Settings</h3>
-        <span class="config-status-badge" id="github-mcp-status-badge">Not Configured</span>
-      </div>
-      <form id="config-github-mcp-form" novalidate>
-        <div class="config-field">
-          <label for="config-github-repo">Repository <span class="required">*</span></label>
-          <input type="text" id="config-github-repo" name="repo"
-                 placeholder="owner/repo" autocomplete="off" />
-          <span class="config-field-error hidden" id="config-github-repo-error"></span>
-        </div>
-        <div class="config-field">
-          <label for="config-github-token">Personal Access Token <span class="required">*</span></label>
-          <input type="password" id="config-github-token" name="token"
-                 placeholder="ghp_..." autocomplete="new-password" />
-          <span class="config-field-error hidden" id="config-github-token-error"></span>
-        </div>
-        <div class="config-field">
-          <label for="config-github-branch">Default Branch <span class="optional">(optional)</span></label>
-          <input type="text" id="config-github-branch" name="default_branch"
-                 placeholder="main" autocomplete="off" />
-        </div>
-        <button class="btn btn-primary" id="config-github-mcp-save" type="submit">Save GitHub MCP Config</button>
-      </form>
-      <div class="config-feedback hidden" id="config-github-mcp-feedback"></div>
-    </div>
-
-  <!-- Analyze panel (shown after records are loaded and at least one selected) -->
-  <section class="analyze-panel" id="analyze-panel" style="display:none" aria-label="Analyze selected failures">
-    <div class="analyze-header">
-      <span>Analyze <span id="analyze-count">0</span> selected record(s)</span>
-    </div>
-    <div class="analyze-controls">
-      <div class="field">
-        <label for="log-backend">Log Backend</label>
-        <select id="log-backend" aria-label="Log backend">
+        <label for="data-source">Source</label>
+        <select id="data-source" aria-label="Data source">
           <option value="">Loading…</option>
         </select>
       </div>
-      <button class="btn" id="analyze-btn" type="button">
-        <span id="analyze-spinner" class="spinner" style="display:none"></span>
-        Analyze
+
+      <div class="custom-dates" id="custom-dates">
+        <div class="field">
+          <label for="start-dt">Start</label>
+          <input type="datetime-local" id="start-dt" />
+        </div>
+        <div class="field">
+          <label for="end-dt">End</label>
+          <input type="datetime-local" id="end-dt" />
+        </div>
+      </div>
+
+      <div class="field field-grow">
+        <label for="component">Component (optional)</label>
+        <input type="text" id="component" placeholder="e.g. dp-lz-s3-event-processor" />
+      </div>
+
+      <div class="field field-grow">
+        <label for="trace-id">Trace / Request ID (optional)</label>
+        <input type="text" id="trace-id" placeholder="e.g. a1b2c3d4-5e6f-7a8b" />
+      </div>
+
+      <button class="btn" id="fetch-btn" type="button">
+        <span id="fetch-spinner" class="spinner" style="display:none"></span>
+        Fetch Failures
       </button>
     </div>
-    <div id="analyze-result" class="analyze-result" style="display:none"></div>
-  </section>
+
+    <!-- Error banner -->
+    <div class="error-banner" id="error-banner" role="alert" style="display:none"></div>
+
+    <!-- Selection bar -->
+    <div class="selection-bar" id="selection-bar">
+      <span id="selection-count"></span>
+      <button class="clear-btn" id="clear-selection-btn" type="button">Clear selection</button>
+    </div>
+
+    <!-- Results header -->
+    <div class="results-header" id="results-header" style="display:none">
+      <div class="summary" id="results-summary"></div>
+      <div class="page-size-wrapper">
+        <label for="page-size">Rows per page:</label>
+        <select id="page-size">
+          <option value="10" selected>10</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Table / empty state -->
+    <div id="table-area"></div>
+
+    <!-- Pagination -->
+    <div class="pagination" id="pagination" style="display:none"></div>
+
+    <!-- Analyze panel (shown after records are loaded and at least one selected) -->
+    <section class="analyze-panel" id="analyze-panel" style="display:none" aria-label="Analyze selected failures">
+      <div class="analyze-header">Analyze <span id="analyze-count">0</span> selected record(s)</div>
+      <div class="analyze-controls">
+        <div class="field">
+          <label for="log-backend">Log Backend</label>
+          <select id="log-backend" aria-label="Log backend">
+            <option value="">Loading…</option>
+          </select>
+        </div>
+        <button class="btn" id="analyze-btn" type="button">
+          <span id="analyze-spinner" class="spinner" style="display:none"></span>
+          Analyze
+        </button>
+      </div>
+      <div id="analyze-result" class="analyze-result" style="display:none"></div>
+    </section>
+
+  </section><!-- /#rca-view -->
+
+  <!-- ══ GitHub view ════════════════════════════════════════════════════════ -->
+  <section id="github-view" class="view hidden" aria-label="GitHub integration">
+
+    <div class="github-section" id="github-section">
+      <h2 class="section-title">GitHub — Source Code Intelligence</h2>
+
+      <div id="github-not-configured" class="github-notice hidden">
+        GitHub is not configured. Set it up in the <strong>Config</strong> tab
+        (or via <strong>GITHUB_REPO</strong> / <strong>GITHUB_TOKEN</strong>).
+      </div>
+
+      <div id="github-content">
+        <div class="github-subsection">
+          <div class="github-subsection-header">
+            <h3>Pull Requests</h3>
+            <div class="btn-group" id="github-pr-state-group">
+              <button class="btn btn-sm active" data-state="open">Open</button>
+              <button class="btn btn-sm" data-state="closed">Closed</button>
+              <button class="btn btn-sm" data-state="all">All</button>
+            </div>
+            <button class="btn btn-sm" id="github-prs-refresh" title="Refresh">&#8635;</button>
+          </div>
+          <div id="github-prs-list" class="github-list">
+            <p class="github-empty">Loading pull requests…</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Code review result panel (shared for PR and branch reviews) -->
+    <div class="code-review-section hidden" id="code-review-section" aria-label="Code review">
+      <div class="code-review-header">
+        <h2>AI Code Review — <span id="code-review-target"></span></h2>
+        <button class="btn btn-sm" id="code-review-close" title="Close">&#10005;</button>
+      </div>
+      <div id="code-review-body"></div>
+      <div id="post-to-pr-panel" class="post-to-pr-panel hidden">
+        <button class="btn btn-primary" id="post-to-pr-btn" type="button">Post to PR</button>
+        <span id="post-to-pr-spinner" class="spinner hidden"></span>
+        <div id="post-to-pr-result" class="post-result hidden"></div>
+      </div>
+    </div>
+
+  </section><!-- /#github-view -->
+
+  <!-- ══ Health view ════════════════════════════════════════════════════════ -->
+  <section id="health-view" class="view hidden" aria-label="Service health">
+    <div class="health-header">
+      <div class="health-title-row">
+        <h2 class="section-title">Service Health</h2>
+        <span class="health-total-badge hidden" id="health-total"></span>
+      </div>
+      <div class="health-controls">
+        <div class="field">
+          <label for="health-profile">Profile</label>
+          <select id="health-profile" aria-label="Health profile"></select>
+        </div>
+        <div class="field">
+          <label for="health-window">Failures in</label>
+          <select id="health-window" aria-label="Lookback window">
+            <option value="1h">Last 1 Hour</option>
+            <option value="24h" selected>Last 24 Hours</option>
+            <option value="7d">Last 7 Days</option>
+            <option value="custom">Custom range…</option>
+          </select>
+        </div>
+        <div class="field health-range hidden" id="health-range">
+          <label for="health-start">From</label>
+          <input type="date" id="health-start">
+        </div>
+        <div class="field health-range hidden" id="health-range-end">
+          <label for="health-end">To</label>
+          <input type="date" id="health-end">
+        </div>
+        <button class="btn btn-sm" id="health-refresh" type="button">
+          <span id="health-spinner" class="spinner hidden"></span>
+          Refresh
+        </button>
+        <button class="btn btn-sm" id="health-export" type="button" title="Download server details, failure counts and unique failure messages as CSV">
+          <span id="health-export-spinner" class="spinner hidden"></span>
+          Export CSV
+        </button>
+      </div>
+    </div>
+    <div class="health-status" id="health-status"></div>
+    <div class="health-grid" id="health-grid"></div>
+
+    <!-- Drill-down: run history + failure reasons for one resource -->
+    <div class="health-modal hidden" id="health-detail-modal" role="dialog" aria-modal="true" aria-labelledby="health-detail-title">
+      <div class="health-modal-box">
+        <div class="health-modal-head">
+          <div>
+            <span class="health-card-type" id="health-detail-type"></span>
+            <h3 class="health-modal-title" id="health-detail-title"></h3>
+          </div>
+          <button class="health-modal-close" id="health-detail-close" type="button" aria-label="Close">&times;</button>
+        </div>
+        <div class="health-modal-controls">
+          <div class="field">
+            <label for="health-detail-start">From</label>
+            <input type="date" id="health-detail-start">
+          </div>
+          <div class="field">
+            <label for="health-detail-end">To</label>
+            <input type="date" id="health-detail-end">
+          </div>
+          <button class="btn btn-sm" id="health-detail-load" type="button">
+            <span id="health-detail-spinner" class="spinner hidden"></span>
+            Load history
+          </button>
+          <button class="btn btn-sm btn-primary" id="health-detail-fetch-failures" type="button">
+            <span id="health-failures-spinner" class="spinner hidden"></span>
+            Fetch Failures
+          </button>
+        </div>
+        <div class="health-modal-body" id="health-detail-body"></div>
+        <div class="health-modal-failures" id="health-detail-failures"></div>
+      </div>
+    </div>
+  </section><!-- /#health-view -->
+
+  <!-- ══ Config view ════════════════════════════════════════════════════════ -->
+  <section id="config-view" class="view hidden" aria-label="Configuration">
+    <h2 class="section-title">Configuration</h2>
+
+    <div class="config-grid">
+
+      <!-- AWS Credentials card -->
+      <div class="config-card" id="config-aws-card">
+        <div class="config-card-header">
+          <h3>AWS Credentials</h3>
+          <span class="config-status-badge" id="aws-status-badge">Not Configured</span>
+        </div>
+        <form id="config-aws-form" novalidate>
+          <div class="config-field">
+            <label for="config-aws-key-id">Access Key ID <span class="required">*</span></label>
+            <input type="text" id="config-aws-key-id" name="access_key_id"
+                   placeholder="AKIAIOSFODNN7EXAMPLE" autocomplete="off" />
+            <span class="config-field-error hidden" id="config-aws-key-id-error"></span>
+          </div>
+          <div class="config-field">
+            <label for="config-aws-secret">Secret Access Key <span class="required">*</span></label>
+            <input type="password" id="config-aws-secret" name="secret_access_key"
+                   placeholder="Your secret access key" autocomplete="new-password" />
+            <span class="config-field-error hidden" id="config-aws-secret-error"></span>
+          </div>
+          <div class="config-field">
+            <label for="config-aws-session-token">Session Token <span class="optional">(optional — required for temporary ASIA… credentials)</span></label>
+            <input type="password" id="config-aws-session-token" name="session_token"
+                   placeholder="For temporary STS credentials" autocomplete="new-password" />
+          </div>
+          <div class="config-field">
+            <label for="config-aws-region">Region <span class="optional">(optional)</span></label>
+            <input type="text" id="config-aws-region" name="region"
+                   placeholder="us-east-1" autocomplete="off" />
+          </div>
+          <button class="btn btn-primary" id="config-aws-save" type="submit">Save AWS Config</button>
+        </form>
+        <div class="config-feedback hidden" id="config-aws-feedback"></div>
+      </div>
+
+      <!-- CloudWatch card -->
+      <div class="config-card" id="config-cloudwatch-card">
+        <div class="config-card-header">
+          <h3>CloudWatch (Lambda logs)</h3>
+          <span class="config-status-badge" id="cloudwatch-status-badge">Not Configured</span>
+        </div>
+        <form id="config-cloudwatch-form" novalidate>
+          <div class="config-field">
+            <label>
+              Log Groups <span class="required">*</span>
+              <span class="optional">(select from your AWS account)</span>
+            </label>
+            <div class="cw-lg-dropdown" id="config-cw-lg-dropdown">
+              <button type="button" class="cw-lg-toggle" id="config-cw-lg-toggle">
+                <span id="config-cw-lg-summary">Select log groups</span>
+                <span class="cw-lg-caret" aria-hidden="true">▾</span>
+              </button>
+              <div class="cw-lg-panel hidden" id="config-cw-lg-panel">
+                <div class="cw-lg-toolbar">
+                  <input type="text" id="config-cw-lg-search" placeholder="Filter log groups… (use | for AND, e.g. onedbm|db11204)" autocomplete="off" />
+                  <button type="button" class="btn-sm" id="config-cw-lg-refresh">Refresh</button>
+                </div>
+                <div class="cw-lg-status" id="config-cw-lg-status">Save AWS credentials to load log groups.</div>
+                <div class="cw-lg-list" id="config-cw-lg-list"></div>
+              </div>
+            </div>
+            <span class="config-field-error hidden" id="config-cw-log-groups-error"></span>
+          </div>
+          <div class="config-field">
+            <label for="config-cw-timeout">Query Timeout (seconds) <span class="optional">(optional)</span></label>
+            <input type="text" id="config-cw-timeout" name="query_timeout"
+                   placeholder="60" inputmode="numeric" autocomplete="off" />
+            <span class="config-field-error hidden" id="config-cw-timeout-error"></span>
+          </div>
+          <button class="btn btn-primary" id="config-cloudwatch-save" type="submit">Save CloudWatch Config</button>
+        </form>
+        <div class="config-feedback hidden" id="config-cw-feedback"></div>
+      </div>
+
+      <!-- Athena card -->
+      <div class="config-card" id="config-athena-card">
+        <div class="config-card-header">
+          <h3>Amazon Athena</h3>
+          <span class="config-status-badge" id="athena-status-badge">Not Configured</span>
+        </div>
+        <form id="config-athena-form" novalidate>
+          <div class="config-field">
+            <label for="config-athena-database">Database <span class="required">*</span></label>
+            <input type="text" id="config-athena-database" name="database"
+                   placeholder="failure_analytics" autocomplete="off" />
+            <span class="config-field-error hidden" id="config-athena-database-error"></span>
+          </div>
+          <div class="config-field">
+            <label for="config-athena-table">Table <span class="required">*</span></label>
+            <input type="text" id="config-athena-table" name="table"
+                   placeholder="failure_events" autocomplete="off" />
+            <span class="config-field-error hidden" id="config-athena-table-error"></span>
+          </div>
+          <p class="config-note">S3 output bucket and region are set via environment (<code>ATHENA_OUTPUT_BUCKET</code>, AWS region). Athena queries fail without an output bucket.</p>
+          <button class="btn btn-primary" id="config-athena-save" type="submit">Save Athena Config</button>
+        </form>
+        <div class="config-feedback hidden" id="config-athena-feedback"></div>
+      </div>
+
+      <!-- Service Health card -->
+      <div class="config-card" id="config-health-card">
+        <div class="config-card-header">
+          <h3>Service Health</h3>
+          <span class="config-status-badge" id="health-status-badge">Not Configured</span>
+        </div>
+        <p class="config-note">Group the AWS resources to monitor into named <strong>profiles</strong> — switch between them on the Health tab. Save AWS credentials first to load choices.</p>
+
+        <div class="config-field">
+          <label for="config-profile-select">Profile</label>
+          <div class="health-profile-controls">
+            <select id="config-profile-select" aria-label="Health profile"></select>
+            <button type="button" class="btn-sm" id="config-profile-new">+ New</button>
+            <button type="button" class="btn-sm" id="config-profile-rename">Rename</button>
+            <button type="button" class="btn-sm" id="config-profile-delete">Delete</button>
+          </div>
+          <div class="config-profile-empty hidden" id="config-profile-empty">No profiles yet — create one to start monitoring.</div>
+        </div>
+
+        <div class="config-field">
+          <label>Glue Jobs</label>
+          <div class="cw-lg-dropdown" id="hp-glue_jobs-dropdown">
+            <button type="button" class="cw-lg-toggle" id="hp-glue_jobs-toggle">
+              <span id="hp-glue_jobs-summary">Select Glue jobs</span>
+              <span class="cw-lg-caret" aria-hidden="true">▾</span>
+            </button>
+            <div class="cw-lg-panel hidden" id="hp-glue_jobs-panel">
+              <div class="cw-lg-toolbar">
+                <input type="text" id="hp-glue_jobs-search" placeholder="Filter…" autocomplete="off" />
+                <button type="button" class="btn-sm" id="hp-glue_jobs-refresh">Refresh</button>
+              </div>
+              <div class="cw-lg-status" id="hp-glue_jobs-status">Save AWS credentials to load.</div>
+              <div class="cw-lg-list" id="hp-glue_jobs-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="config-field">
+          <label>Glue Workflows</label>
+          <div class="cw-lg-dropdown" id="hp-glue_workflows-dropdown">
+            <button type="button" class="cw-lg-toggle" id="hp-glue_workflows-toggle">
+              <span id="hp-glue_workflows-summary">Select Glue workflows</span>
+              <span class="cw-lg-caret" aria-hidden="true">▾</span>
+            </button>
+            <div class="cw-lg-panel hidden" id="hp-glue_workflows-panel">
+              <div class="cw-lg-toolbar">
+                <input type="text" id="hp-glue_workflows-search" placeholder="Filter…" autocomplete="off" />
+                <button type="button" class="btn-sm" id="hp-glue_workflows-refresh">Refresh</button>
+              </div>
+              <div class="cw-lg-status" id="hp-glue_workflows-status">Save AWS credentials to load.</div>
+              <div class="cw-lg-list" id="hp-glue_workflows-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="config-field">
+          <label>Lambda Functions</label>
+          <div class="cw-lg-dropdown" id="hp-lambda_functions-dropdown">
+            <button type="button" class="cw-lg-toggle" id="hp-lambda_functions-toggle">
+              <span id="hp-lambda_functions-summary">Select Lambda functions</span>
+              <span class="cw-lg-caret" aria-hidden="true">▾</span>
+            </button>
+            <div class="cw-lg-panel hidden" id="hp-lambda_functions-panel">
+              <div class="cw-lg-toolbar">
+                <input type="text" id="hp-lambda_functions-search" placeholder="Filter…" autocomplete="off" />
+                <button type="button" class="btn-sm" id="hp-lambda_functions-refresh">Refresh</button>
+              </div>
+              <div class="cw-lg-status" id="hp-lambda_functions-status">Save AWS credentials to load.</div>
+              <div class="cw-lg-list" id="hp-lambda_functions-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="config-field">
+          <label>DataSync Tasks</label>
+          <div class="cw-lg-dropdown" id="hp-datasync_tasks-dropdown">
+            <button type="button" class="cw-lg-toggle" id="hp-datasync_tasks-toggle">
+              <span id="hp-datasync_tasks-summary">Select DataSync tasks</span>
+              <span class="cw-lg-caret" aria-hidden="true">▾</span>
+            </button>
+            <div class="cw-lg-panel hidden" id="hp-datasync_tasks-panel">
+              <div class="cw-lg-toolbar">
+                <input type="text" id="hp-datasync_tasks-search" placeholder="Filter…" autocomplete="off" />
+                <button type="button" class="btn-sm" id="hp-datasync_tasks-refresh">Refresh</button>
+              </div>
+              <div class="cw-lg-status" id="hp-datasync_tasks-status">Save AWS credentials to load.</div>
+              <div class="cw-lg-list" id="hp-datasync_tasks-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="config-health-save" type="button">Save Profile</button>
+        <div class="config-feedback hidden" id="config-health-feedback"></div>
+      </div>
+
+      <!-- GitHub MCP Settings card -->
+      <div class="config-card" id="config-github-mcp-card">
+        <div class="config-card-header">
+          <h3>GitHub MCP Settings</h3>
+          <span class="config-status-badge" id="github-mcp-status-badge">Not Configured</span>
+        </div>
+        <form id="config-github-mcp-form" novalidate>
+          <div class="config-field">
+            <label for="config-github-repo">Repository <span class="required">*</span></label>
+            <input type="text" id="config-github-repo" name="repo"
+                   placeholder="owner/repo" autocomplete="off" />
+            <span class="config-field-error hidden" id="config-github-repo-error"></span>
+          </div>
+          <div class="config-field">
+            <label for="config-github-token">Personal Access Token <span class="required">*</span></label>
+            <input type="password" id="config-github-token" name="token"
+                   placeholder="ghp_..." autocomplete="new-password" />
+            <span class="config-field-error hidden" id="config-github-token-error"></span>
+          </div>
+          <div class="config-field">
+            <label for="config-github-branch">Default Branch <span class="optional">(optional)</span></label>
+            <input type="text" id="config-github-branch" name="default_branch"
+                   placeholder="main" autocomplete="off" />
+          </div>
+          <button class="btn btn-primary" id="config-github-mcp-save" type="submit">Save GitHub MCP Config</button>
+        </form>
+        <div class="config-feedback hidden" id="config-github-mcp-feedback"></div>
+      </div>
+
+    </div><!-- /.config-grid -->
+  </section><!-- /#config-view -->
 
 </main>
 

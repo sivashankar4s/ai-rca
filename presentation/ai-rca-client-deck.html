@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sentinel AI — Client Overview</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --roche:#005dab; --roche-l:#007ac2; --accent:#00b4d8; --amber:#f0a500;
+    --bg:#0a0f1e; --bg2:#111827; --bg3:#1a2236; --card:#1e2d47; --border:#2a3f5e;
+    --text:#e8f0fe; --muted:#8fa8c8; --green:#22c55e; --red:#ef4444;
+    --orange:#f97316; --purple:#a855f7;
+  }
+  html,body{height:100%}
+  body{
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    background:var(--bg); color:var(--text); line-height:1.55; overflow:hidden;
+  }
+
+  /* ── Deck / slide mechanics ─────────────────────────────── */
+  .deck{position:relative; width:100vw; height:100vh}
+  .slide{
+    position:absolute; inset:0; opacity:0; visibility:hidden;
+    padding:6vh 7vw; display:flex; flex-direction:column; justify-content:center;
+    transition:opacity .35s ease; overflow:hidden;
+  }
+  .slide.active{opacity:1; visibility:visible; z-index:2}
+  .slide.cover{
+    background:radial-gradient(ellipse at 28% 45%,rgba(0,93,171,.38) 0%,transparent 60%),
+               radial-gradient(ellipse at 78% 18%,rgba(0,180,216,.18) 0%,transparent 50%),
+               var(--bg);
+    justify-content:center; align-items:flex-start;
+  }
+
+  /* ── Chrome: progress, counter, hint ────────────────────── */
+  .progress{position:fixed; top:0; left:0; height:3px; background:linear-gradient(90deg,var(--roche-l),var(--accent)); z-index:50; transition:width .35s}
+  .counter{position:fixed; bottom:18px; right:26px; font-size:12px; color:var(--muted); z-index:50; letter-spacing:.5px}
+  .brandmark{position:fixed; bottom:16px; left:26px; font-size:11px; color:var(--muted); z-index:50; letter-spacing:1px; text-transform:uppercase; display:flex; align-items:center; gap:8px}
+  .brandmark b{color:var(--text)}
+  .hint{position:fixed; bottom:16px; left:50%; transform:translateX(-50%); font-size:11px; color:var(--border); z-index:50}
+
+  /* ── Type scale ─────────────────────────────────────────── */
+  .kicker{font-size:12px; font-weight:700; letter-spacing:3px; text-transform:uppercase; color:var(--accent); margin-bottom:18px}
+  h1{font-size:clamp(38px,6vw,74px); font-weight:900; line-height:1.03; letter-spacing:-1px}
+  h1 span{color:var(--accent)}
+  h2{font-size:clamp(26px,3.6vw,46px); font-weight:800; line-height:1.12; margin-bottom:12px; letter-spacing:-.5px}
+  .lead{font-size:clamp(14px,1.55vw,19px); color:var(--muted); max-width:60ch; margin-bottom:30px}
+  .slide.cover .lead{max-width:56ch}
+
+  code{background:rgba(255,255,255,.08); padding:2px 8px; border-radius:6px; font-size:.85em; color:var(--accent)}
+
+  /* ── Cover pills ────────────────────────────────────────── */
+  .tag{display:inline-flex; align-items:center; gap:8px; background:rgba(0,180,216,.12); border:1px solid rgba(0,180,216,.3); color:var(--accent); padding:7px 18px; border-radius:100px; font-size:13px; font-weight:600; margin-bottom:30px}
+  .pills{display:flex; flex-wrap:wrap; gap:11px; margin-top:38px}
+  .pill{background:rgba(255,255,255,.05); border:1px solid var(--border); padding:8px 18px; border-radius:100px; font-size:13px; font-weight:500; display:flex; align-items:center; gap:8px}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--green)}
+  .dot.b{background:var(--roche-l)} .dot.o{background:var(--amber)} .dot.p{background:var(--purple)}
+
+  /* ── Grids & cards ──────────────────────────────────────── */
+  .grid{display:grid; gap:18px}
+  .g2{grid-template-columns:repeat(2,1fr)} .g3{grid-template-columns:repeat(3,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  .card{background:var(--card); border:1px solid var(--border); border-radius:16px; padding:22px 24px}
+  .card .ic{width:44px;height:44px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:21px;margin-bottom:13px}
+  .ic.blue{background:rgba(0,122,194,.2)} .ic.teal{background:rgba(0,180,216,.2)}
+  .ic.green{background:rgba(34,197,94,.2)} .ic.amber{background:rgba(240,165,0,.2)}
+  .ic.red{background:rgba(239,68,68,.2)} .ic.purple{background:rgba(168,85,247,.2)}
+  .card h3{font-size:16px; font-weight:700; margin-bottom:6px}
+  .card p{font-size:13.5px; color:var(--muted); line-height:1.5}
+
+  /* ── Problem pains ──────────────────────────────────────── */
+  .pain{list-style:none; display:flex; flex-direction:column; gap:13px}
+  .pain li{display:flex; gap:16px; align-items:flex-start; background:rgba(239,68,68,.07); border:1px solid rgba(239,68,68,.2); border-radius:12px; padding:15px 20px}
+  .pnum{min-width:30px;height:30px;border-radius:50%;background:rgba(239,68,68,.2);color:var(--red);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px}
+  .pain strong{display:block; font-size:15px; margin-bottom:2px}
+  .pain span{color:var(--muted); font-size:13.5px}
+  .callout{border-left:4px solid var(--accent); background:rgba(0,180,216,.08); border-radius:0 12px 12px 0; padding:14px 20px; margin-top:22px; font-size:14.5px; color:var(--muted)}
+  .callout b{color:var(--text)}
+
+  /* ── Persona cards ──────────────────────────────────────── */
+  .persona{background:var(--card); border:1px solid var(--border); border-radius:16px; padding:22px}
+  .persona .av{width:50px;height:50px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:12px}
+  .persona .role{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--accent);margin-bottom:5px}
+  .persona h3{font-size:16px;margin-bottom:7px}
+  .persona p{font-size:13px;color:var(--muted)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px}
+  .chip{font-size:11px;font-weight:600;padding:3px 10px;border-radius:100px;background:rgba(0,180,216,.12);border:1px solid rgba(0,180,216,.25);color:var(--accent)}
+
+  /* ── Flow / steps ───────────────────────────────────────── */
+  .flow{display:flex; gap:0; align-items:stretch}
+  .fstep{flex:1; background:var(--card); border:1px solid var(--border); border-radius:14px; padding:18px 15px; text-align:center; position:relative}
+  .fstep + .fstep{margin-left:26px}
+  .fstep::before{content:'▶'; position:absolute; left:-19px; top:50%; transform:translateY(-50%); color:var(--accent); font-size:12px}
+  .fstep:first-child::before{display:none}
+  .fnum{width:32px;height:32px;border-radius:50%;background:var(--roche);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;margin:0 auto 10px}
+  .fstep h4{font-size:13.5px;margin-bottom:5px}
+  .fstep p{font-size:11.5px;color:var(--muted); line-height:1.4}
+  .fbadge{display:inline-block;margin-top:8px;font-size:9.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;padding:3px 9px;border-radius:100px}
+  .b-ui{background:rgba(168,85,247,.15);color:var(--purple);border:1px solid rgba(168,85,247,.3)}
+  .b-aws{background:rgba(0,122,194,.15);color:var(--roche-l);border:1px solid rgba(0,122,194,.3)}
+  .b-llm{background:rgba(0,180,216,.15);color:var(--accent);border:1px solid rgba(0,180,216,.3)}
+  .b-ok{background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+
+  /* ── Architecture layers ────────────────────────────────── */
+  .layer{border:1px solid var(--border); border-radius:14px; padding:18px 20px 16px; position:relative; margin-bottom:12px}
+  .llabel{position:absolute; top:-11px; left:18px; background:var(--bg2); padding:2px 12px; border-radius:100px; font-size:10.5px; font-weight:700; letter-spacing:1px; text-transform:uppercase}
+  .l-fe{color:var(--purple);border:1px solid rgba(168,85,247,.35)}
+  .l-be{color:var(--accent);border:1px solid rgba(0,180,216,.35)}
+  .l-aws{color:var(--amber);border:1px solid rgba(240,165,0,.35)}
+  .l-ai{color:var(--green);border:1px solid rgba(34,197,94,.35)}
+  .row{display:flex; flex-wrap:wrap; gap:9px}
+  .box{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:9px;padding:8px 13px;font-size:12.5px;font-weight:500}
+  .arrow{text-align:center;color:var(--muted);font-size:12px;margin:2px 0}
+
+  /* ── Design pattern slide ───────────────────────────────── */
+  .patt{display:grid; grid-template-columns:1.05fr 1fr; gap:26px; align-items:center}
+  .codeblock{background:#0d1424; border:1px solid var(--border); border-radius:14px; padding:18px 20px; font-family:'Cascadia Code',Consolas,monospace; font-size:12.5px; line-height:1.7; color:var(--muted); overflow:hidden}
+  .codeblock .c-key{color:var(--purple)} .codeblock .c-cls{color:var(--accent)}
+  .codeblock .c-str{color:var(--green)} .codeblock .c-cm{color:#5b6b85}
+  .plist{list-style:none; display:flex; flex-direction:column; gap:14px}
+  .plist li{display:flex; gap:14px; align-items:flex-start}
+  .pdot{min-width:30px;height:30px;border-radius:9px;background:rgba(0,180,216,.15);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:15px}
+  .plist strong{display:block;font-size:14.5px;margin-bottom:2px}
+  .plist span{font-size:13px;color:var(--muted)}
+
+  /* ── Advantage / metric ─────────────────────────────────── */
+  .metric{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px;text-align:center}
+  .mbefore{font-size:12.5px;color:var(--red);font-weight:600;margin-bottom:6px}
+  .mafter{font-size:12.5px;color:var(--green);font-weight:600;margin-top:6px}
+  .mbig{font-size:clamp(30px,4vw,46px);font-weight:900;line-height:1}
+  .mbig.g{color:var(--green)} .mbig.a{color:var(--amber)} .mbig.b{color:var(--accent)}
+  .mlabel{font-size:12.5px;color:var(--muted);margin-top:4px}
+  .bar{background:rgba(255,255,255,.06);border-radius:100px;height:11px;overflow:hidden}
+  .bar > i{display:block;height:100%;border-radius:100px}
+
+  /* ── Roadmap ────────────────────────────────────────────── */
+  .rm{display:flex;gap:16px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--border)}
+  .rm:last-child{border-bottom:none}
+  .rbadge{min-width:78px;height:25px;border-radius:100px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase}
+  .r-done{background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+  .r-next{background:rgba(240,165,0,.15);color:var(--amber);border:1px solid rgba(240,165,0,.3)}
+  .r-str{background:rgba(168,85,247,.15);color:var(--purple);border:1px solid rgba(168,85,247,.3)}
+  .rm h4{font-size:14px;margin-bottom:2px}
+  .rm p{font-size:12.5px;color:var(--muted)}
+
+  /* ── Advantage highlight strip ──────────────────────────── */
+  .adv{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:8px}
+  .advb{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px}
+  .advb .n{font-size:clamp(26px,3vw,38px);font-weight:900;color:var(--accent);line-height:1}
+  .advb h4{font-size:14px;margin:8px 0 4px}
+  .advb p{font-size:12.5px;color:var(--muted)}
+
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:center}
+
+  /* ── All-feature workflow lanes (diagram) ───────────────── */
+  .wsetup{border-left:4px solid var(--roche-l);background:rgba(0,122,194,.09);border-radius:0 12px 12px 0;padding:11px 18px;margin-bottom:16px;font-size:13.5px;color:var(--muted)}
+  .wsetup b{color:var(--text)}
+  .wlane{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--border);border-radius:13px;padding:12px 16px;margin-bottom:11px}
+  .wlabel{min-width:186px;font-size:13.5px;font-weight:700;display:flex;align-items:center;gap:8px}
+  .wlabel.teal{color:var(--accent)} .wlabel.llm{color:var(--purple)} .wlabel.amber{color:var(--amber)}
+  .wsteps{display:flex;align-items:center;flex-wrap:wrap;gap:8px;flex:1}
+  .wstep{background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:9px;padding:7px 13px;font-size:12px;font-weight:500}
+  .warr{color:var(--accent);font-size:13px;font-weight:700}
+
+  /* ── Print → PDF (one slide per landscape page) ─────────── */
+  @page{size:1280px 720px; margin:0}
+  @media print{
+    html,body{overflow:visible; height:auto; -webkit-print-color-adjust:exact; print-color-adjust:exact}
+    .deck{height:auto}
+    .progress,.counter,.brandmark,.hint{display:none!important}
+    .slide{position:relative; inset:auto; opacity:1!important; visibility:visible!important;
+      width:1280px; height:720px; page-break-after:always; break-after:page; display:flex}
+  }
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+<div class="brandmark">⚙ <b>Sentinel AI</b> · Roche DS Platform</div>
+<div class="counter" id="counter">01 / 15</div>
+<div class="hint">← → or Space to navigate · F for fullscreen</div>
+
+<div class="deck" id="deck">
+
+  <!-- 1 · COVER -->
+  <section class="slide cover active">
+    <div class="tag">⚙ Roche DS Platform · AI-Powered Reliability</div>
+    <h1>Sentinel <span>AI</span></h1>
+    <p class="lead" style="margin-top:18px">
+      Watch every pipeline service, then go from a raw failure to the exact root cause, the fix, and a
+      one-click log deep-link — in <b style="color:var(--text)">60 seconds</b>, not hours. No AWS expertise required.
+    </p>
+    <div class="pills">
+      <span class="pill"><span class="dot"></span>Built &amp; running today</span>
+      <span class="pill"><span class="dot b"></span>Service Health monitoring</span>
+      <span class="pill"><span class="dot p"></span>Claude AI root-cause analysis</span>
+      <span class="pill"><span class="dot o"></span>GitHub Code Intelligence</span>
+    </div>
+  </section>
+
+  <!-- 2 · PROBLEM -->
+  <section class="slide">
+    <p class="kicker">The Problem</p>
+    <h2>Every failure means the same<br>slow, expert-only detective work</h2>
+    <p class="lead">When <code>dp_monitor_db11224</code> lights up with FAILED records, an on-call engineer repeats four manual steps — each needing deep platform knowledge.</p>
+    <ul class="pain">
+      <li><div class="pnum">1</div><div><strong>Query Athena by hand</strong><span>Write SQL, guess the time window, filter for FAILED — 10–20 min per investigation.</span></div></li>
+      <li><div class="pnum">2</div><div><strong>Author CloudWatch queries from scratch</strong><span>Must know log-group names, field names, error codes. One mistake = zero results.</span></div></li>
+      <li><div class="pnum">3</div><div><strong>Read hundreds of log lines</strong><span>Correlate trace IDs, device IDs, error codes by eye. High load, easy to miss the pattern.</span></div></li>
+      <li><div class="pnum">4</div><div><strong>Write the RCA report</strong><span>Document cause, impact, fix, escalation — another 30–60 min after the digging.</span></div></li>
+    </ul>
+    <div class="callout"><b>1–3 hours of senior-engineer time per incident.</b> With concurrent failures, this is the single biggest drag on the on-call rotation.</div>
+  </section>
+
+  <!-- 3 · USERS & USE CASES -->
+  <section class="slide">
+    <p class="kicker">Who It's For · Use Cases</p>
+    <h2>One tool, three audiences —<br>zero prerequisite knowledge</h2>
+    <div class="grid g3" style="margin-bottom:18px">
+      <div class="persona"><div class="av" style="background:rgba(0,122,194,.2)">👨‍💻</div><div class="role">Platform Engineer</div><h3>On-Call SRE</h3><p>Paged at 2 AM for 50+ failing records. Needs the root cause <em>now</em> — without touching Athena or CloudWatch by hand.</p><div class="chips"><span class="chip">Primary</span><span class="chip">High urgency</span></div></div>
+      <div class="persona"><div class="av" style="background:rgba(34,197,94,.2)">📊</div><div class="role">QA / Test Engineer</div><h3>QA Analyst</h3><p>Validates pipeline health after each deploy. Confirms no new failure patterns crept in — with no deep AWS skills needed.</p><div class="chips"><span class="chip">Post-deploy</span><span class="chip">Regression</span></div></div>
+      <div class="persona"><div class="av" style="background:rgba(240,165,0,.2)">🧑‍💼</div><div class="role">Tech Lead / Manager</div><h3>Engineering Lead</h3><p>Reads the executive summary at stand-up and shares a stakeholder-ready status — without opening an AWS console.</p><div class="chips"><span class="chip">Reporting</span><span class="chip">Exec summary</span></div></div>
+    </div>
+    <div class="callout"><b>The barrier removed:</b> no need to know Athena SQL, CloudWatch Insights syntax, log-group paths, or which error codes map to which components. A junior engineer can now run a full RCA. The only prerequisite is read-only AWS credentials — supplied live in the app.</div>
+  </section>
+
+  <!-- 4 · SOLUTION / FEATURES -->
+  <section class="slide">
+    <p class="kicker">The Solution · What You Get Today</p>
+    <h2>A two-step web app that runs the<br>whole investigation for you</h2>
+    <div class="grid g3">
+      <div class="card"><div class="ic blue">🔍</div><h3>1 · Fetch failures</h3><p>Pick a range (1h / 1d / 1w or custom) and optional filters. Athena returns a paginated FAILED table in seconds.</p></div>
+      <div class="card"><div class="ic teal">🧠</div><h3>2 · Analyze</h3><p>Select the rows that matter, click <b>Analyze</b>. The AI hunts the logs and returns grouped root causes — no manual log digging.</p></div>
+      <div class="card"><div class="ic green">📋</div><h3>Failure groups</h3><p>Each group: error pattern, root cause, category, impact count, immediate action, likely fix, affected files, escalation path.</p></div>
+      <div class="card"><div class="ic amber">📝</div><h3>Executive summary</h3><p>A 2–3 sentence, stakeholder-ready report generated automatically. Copy, paste into a ticket, done.</p></div>
+      <div class="card"><div class="ic purple">🔗</div><h3>One-click log deep-links</h3><p>Every group carries a ready-made CloudWatch / Grafana link — right query, right log group, right time window.</p></div>
+      <div class="card"><div class="ic red">🕑</div><h3>Recurring-issue memory</h3><p>Repeat failures are auto-linked to a persistent RCA case, so "we've seen this before" is flagged for you.</p></div>
+    </div>
+    <div class="callout"><b>How to use it — literally 4 clicks:</b> open the app → choose a time range → <b>Fetch Failures</b> → tick rows → <b>Analyze Root Cause</b>. Read the grouped result, copy the summary, open the log link.</div>
+  </section>
+
+  <!-- 5 · WORKFLOW -->
+  <section class="slide">
+    <p class="kicker">How It Works</p>
+    <h2>From alert to actionable RCA<br>in under 60 seconds</h2>
+    <p class="lead" style="margin-bottom:14px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)">What the user does</p>
+    <div class="flow" style="margin-bottom:26px">
+      <div class="fstep"><div class="fnum">1</div><h4>Open &amp; set range</h4><p>Default: last 1 hour. Add a filter if needed.</p><span class="fbadge b-ui">Browser</span></div>
+      <div class="fstep"><div class="fnum">2</div><h4>Fetch failures</h4><p>Athena query runs, paginated table appears.</p><span class="fbadge b-aws">Athena</span></div>
+      <div class="fstep"><div class="fnum">3</div><h4>Select records</h4><p>Tick rows or Select-All across pages.</p><span class="fbadge b-ui">Browser</span></div>
+      <div class="fstep"><div class="fnum">4</div><h4>Analyze</h4><p>One click kicks off the AI pipeline.</p><span class="fbadge b-llm">AI + Logs</span></div>
+      <div class="fstep"><div class="fnum">5</div><h4>Read results</h4><p>Grouped RCA, summary, log links.</p><span class="fbadge b-ok">Done ✓</span></div>
+    </div>
+    <p class="lead" style="margin-bottom:14px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)">What the system does automatically (behind step 4)</p>
+    <div class="flow">
+      <div class="fstep" style="border-color:rgba(0,180,216,.3)"><div class="fnum" style="background:var(--accent)">A</div><h4>Summarize</h4><p>LLM reads records, finds error codes &amp; stages.</p><span class="fbadge b-llm">AI</span></div>
+      <div class="fstep" style="border-color:rgba(0,180,216,.3)"><div class="fnum" style="background:var(--accent)">B</div><h4>Generate queries</h4><p>3 targeted log queries written from context.</p><span class="fbadge b-llm">AI</span></div>
+      <div class="fstep" style="border-color:rgba(240,165,0,.3)"><div class="fnum" style="background:var(--amber)">C</div><h4>Run queries</h4><p>Parallel log search collects the evidence.</p><span class="fbadge b-aws">Logs</span></div>
+      <div class="fstep" style="border-color:rgba(0,180,216,.3)"><div class="fnum" style="background:var(--accent)">D</div><h4>Group &amp; explain</h4><p>Correlates data + logs into root causes.</p><span class="fbadge b-llm">AI</span></div>
+      <div class="fstep" style="border-color:rgba(34,197,94,.3)"><div class="fnum" style="background:var(--green)">E</div><h4>Render</h4><p>Groups, stats &amp; links shown in the UI.</p><span class="fbadge b-ok">UI</span></div>
+    </div>
+  </section>
+
+  <!-- 6 · ARCHITECTURE -->
+  <section class="slide">
+    <p class="kicker">Architecture</p>
+    <h2>A clean three-layer design</h2>
+    <p class="lead" style="margin-bottom:18px">Browser SPA → FastAPI orchestrator → pluggable AWS &amp; AI backends. Each layer swappable without touching the others.</p>
+    <div class="layer l-fe"><div class="llabel l-fe">Frontend · Browser SPA</div><div class="row"><div class="box">🖥 Vanilla HTML/CSS/JS</div><div class="box">📋 Paginated failure table</div><div class="box">📊 RCA results &amp; groups</div><div class="box">🔗 Log deep-links</div><div class="box">⚙ Runtime config drawer</div></div></div>
+    <div class="arrow">↕ REST JSON &nbsp;·&nbsp; POST /api/failures &nbsp;·&nbsp; POST /api/analyze</div>
+    <div class="layer l-be"><div class="llabel l-be">Backend · FastAPI (Python 3.13)</div><div class="row"><div class="box">🎼 RCA Orchestrator</div><div class="box">🧩 Plugin Registry</div><div class="box">🗄 Data-source strategy</div><div class="box">📜 Log-analysis strategy</div><div class="box">🤖 LLM strategy</div><div class="box">💾 Postgres (RCA case history)</div></div></div>
+    <div class="arrow">↕ boto3 (AWS SDK) &nbsp;·&nbsp; HTTPS (Claude API) &nbsp;·&nbsp; MCP (GitHub)</div>
+    <div class="two" style="gap:16px">
+      <div class="layer l-aws" style="margin-bottom:0"><div class="llabel l-aws">AWS Services</div><div class="row"><div class="box">🏛 Athena</div><div class="box">📡 CloudWatch Insights</div><div class="box">📁 S3 results</div><div class="box">🔑 IAM</div></div></div>
+      <div class="layer l-ai" style="margin-bottom:0"><div class="llabel l-ai">AI &amp; Code Intelligence</div><div class="row"><div class="box">🧠 Claude (Anthropic)</div><div class="box">🔗 GitHub MCP server</div></div></div>
+    </div>
+  </section>
+
+  <!-- 7 · DESIGN PATTERNS -->
+  <section class="slide">
+    <p class="kicker">Design Patterns · Why It's Built to Last</p>
+    <h2>Strategy + Plugin Registry =<br>swap any backend in one file</h2>
+    <div class="patt">
+      <div>
+        <ul class="plist">
+          <li><div class="pdot">🧩</div><div><strong>Strategy pattern</strong><span>The orchestrator depends only on three interfaces — <code>DataSource</code>, <code>LLM</code>, <code>LogAnalysis</code>. It never knows which concrete backend is running.</span></div></li>
+          <li><div class="pdot">🔌</div><div><strong>Plugin registry</strong><span>Providers are wired at request time from config. Athena↔local file, CloudWatch↔Grafana Loki, Claude↔any model — flipped by an env var.</span></div></li>
+          <li><div class="pdot">➕</div><div><strong>Open for extension</strong><span>A new backend = one new provider file. The orchestrator and API routes never change. Zero regression risk.</span></div></li>
+          <li><div class="pdot">🧪</div><div><strong>Testable by design</strong><span>Local-file + fake-LLM providers mean the whole pipeline runs with no AWS, no keys — ideal for CI and demos.</span></div></li>
+        </ul>
+      </div>
+      <div class="codeblock"><span class="c-cm"># Orchestrator depends on abstractions only</span><br>
+<span class="c-key">class</span> <span class="c-cls">RCAOrchestrator</span>:<br>
+&nbsp;&nbsp;<span class="c-key">def</span> __init__(self, data, llm, logs):<br>
+&nbsp;&nbsp;&nbsp;&nbsp;self.data = data <span class="c-cm"># DataSourceStrategy</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;self.llm&nbsp;&nbsp;= llm&nbsp;&nbsp;<span class="c-cm"># LLMStrategy</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;self.logs = logs <span class="c-cm"># LogAnalysisStrategy</span><br><br>
+<span class="c-cm"># Registry picks concrete providers from .env</span><br>
+data = <span class="c-cls">registry</span>.data_source(<span class="c-str">"athena"</span>)<br>
+llm&nbsp;&nbsp;= <span class="c-cls">registry</span>.llm(<span class="c-str">"anthropic"</span>)<br>
+logs = <span class="c-cls">registry</span>.log_backend(<span class="c-str">"cloudwatch"</span>)<br><br>
+<span class="c-cm"># Swap a backend? Add ONE file. Nothing else changes.</span></div>
+    </div>
+  </section>
+
+  <!-- 8 · AI PIPELINE -->
+  <section class="slide">
+    <p class="kicker">Inside the AI</p>
+    <h2>The LLM runs 5 precise jobs —<br>each grounded in real failure data</h2>
+    <div class="grid g3" style="gap:16px">
+      <div class="card"><div class="ic teal">①</div><h3>Summarize failures</h3><p>Reads up to 50 records; identifies failing components, exact error codes, stage clustering, and time-based bursts.</p></div>
+      <div class="card"><div class="ic blue">②</div><h3>Generate log queries</h3><p>Writes 3 targeted queries — error-code search, component + ERROR filter, and trace-ID correlation.</p></div>
+      <div class="card"><div class="ic amber">③</div><h3>Execute &amp; collect</h3><p>Runs the queries in parallel against the configured log backend and gathers the relevant log lines.</p></div>
+      <div class="card"><div class="ic green">④</div><h3>RCA + grouping</h3><p>Correlates records + logs into structured groups with real field values — no vague "check the logs".</p></div>
+      <div class="card"><div class="ic purple">⑤</div><h3>Executive summary</h3><p>Distills all groups into a leadership-ready paragraph, ready to paste into an incident update.</p></div>
+      <div class="card" style="background:rgba(0,180,216,.08);border-color:rgba(0,180,216,.3)"><div class="ic teal">🛡</div><h3>Guardrails</h3><p>Prompts demand actual values (component, error_code, stage, device_id). Robust JSON parsing tolerates markdown fences.</p></div>
+    </div>
+  </section>
+
+  <!-- 9 · CODE INTELLIGENCE -->
+  <section class="slide">
+    <p class="kicker">Beyond RCA · Source Code Intelligence</p>
+    <h2>From "why did it fail" to<br>"is the fix any good"</h2>
+    <p class="lead">A GitHub MCP integration brings repo, branch, and PR awareness into the same app — and an AI reviewer inspects the diff.</p>
+    <div class="grid g3" style="margin-bottom:18px">
+      <div class="card"><div class="ic blue">🔗</div><h3>Repo &amp; PR browser</h3><p>Lists repo info, branches, and pull requests via the GitHub MCP server — no console-hopping.</p></div>
+      <div class="card"><div class="ic amber">🛡</div><h3>AI code review</h3><p>One click fetches a PR/branch diff and sends it to Claude for a structured, severity-ranked review.</p></div>
+      <div class="card"><div class="ic green">🔀</div><h3>Related code changes</h3><p>Surfaces the commits &amp; PRs in the failure's time window — the likely change that broke things.</p></div>
+    </div>
+    <div class="row" style="gap:10px">
+      <div class="box">🛡 Security &amp; secrets</div>
+      <div class="box">🗄 SQL injection</div>
+      <div class="box">📐 SonarQube-style smells</div>
+      <div class="box">🎨 Formatting</div>
+      <div class="box">💡 Feature recommendations</div>
+    </div>
+  </section>
+
+  <!-- 10 · SERVICE HEALTH -->
+  <section class="slide">
+    <p class="kicker">Beyond RCA · Proactive Service Health</p>
+    <h2>See every pipeline service at a glance —<br>then drill into exactly why it failed</h2>
+    <div class="grid g3" style="gap:16px">
+      <div class="card"><div class="ic teal">🩺</div><h3>Health at a glance</h3><p>Glue jobs, Glue workflows, Lambda functions &amp; DataSync tasks — each shows up / down and a failure count, colour-coded green → amber → red, with the total across all services.</p></div>
+      <div class="card"><div class="ic blue">🗂</div><h3>Monitoring profiles</h3><p>Group resources into named profiles (e.g. "Prod ETL", "Ingestion") and switch between them — each team watches just their own pipelines.</p></div>
+      <div class="card"><div class="ic purple">📅</div><h3>Any time window</h3><p>Count failures over 1h / 24h / 7d or a custom date range — the same range carries straight into the drill-down.</p></div>
+      <div class="card"><div class="ic green">🔎</div><h3>Run-history drill-down</h3><p>Click a service to see its individual runs / invocations — success or failure — with timestamps and native error detail.</p></div>
+      <div class="card"><div class="ic amber">🧠</div><h3>Fetch failure reasons</h3><p>One click pulls the CloudWatch log reasons behind the failures — the same detector that powers RCA, scoped to that resource.</p></div>
+      <div class="card"><div class="ic red">🔑</div><h3>Zero console-hopping</h3><p>All from read-only AWS credentials supplied in-app — no Glue, Lambda, or DataSync console access required.</p></div>
+    </div>
+    <div class="callout"><b>Reactive RCA, meet proactive monitoring:</b> RCA explains a failure after the alert — Service Health surfaces failing jobs, workflows, and functions on demand, and drills all the way down to the root-cause logs in the same app.</div>
+  </section>
+
+  <!-- 11 · ALL-FEATURE WORKFLOW (DIAGRAM) -->
+  <section class="slide">
+    <p class="kicker">End-to-End · How Every Feature Flows</p>
+    <h2>One app, three workflows —<br>from setup to resolved incident</h2>
+    <div class="wsetup"><b>① Setup (once):</b> save read-only AWS credentials, CloudWatch log groups, health-monitoring profiles, and a GitHub repo — all in the in-app Config tab.</div>
+    <div class="wlane">
+      <div class="wlabel teal">🩺 Service Health</div>
+      <div class="wsteps">
+        <span class="wstep">Pick a profile + window</span><span class="warr">→</span>
+        <span class="wstep">Up / down + failure counts</span><span class="warr">→</span>
+        <span class="wstep">Drill into a service</span><span class="warr">→</span>
+        <span class="wstep">Fetch CloudWatch reasons</span>
+      </div>
+    </div>
+    <div class="wlane">
+      <div class="wlabel llm">🧠 Root Cause Analysis</div>
+      <div class="wsteps">
+        <span class="wstep">Fetch failures (Athena / CloudWatch)</span><span class="warr">→</span>
+        <span class="wstep">Select records</span><span class="warr">→</span>
+        <span class="wstep">AI analyzes the logs</span><span class="warr">→</span>
+        <span class="wstep">Grouped causes + log deep-links</span>
+      </div>
+    </div>
+    <div class="wlane">
+      <div class="wlabel amber">🔗 Code Intelligence</div>
+      <div class="wsteps">
+        <span class="wstep">Browse repo / PRs</span><span class="warr">→</span>
+        <span class="wstep">Diff → AI code review</span><span class="warr">→</span>
+        <span class="wstep">Severity-ranked findings</span><span class="warr">→</span>
+        <span class="wstep">Related change in the failure window</span>
+      </div>
+    </div>
+    <div class="callout"><b>The payoff:</b> failures are caught early on the Health dashboard, root-caused in seconds by the AI pipeline, and the suspect code change is reviewed — without ever leaving the app or opening an AWS console.</div>
+  </section>
+
+  <!-- 12 · ADVANTAGES -->
+  <section class="slide">
+    <p class="kicker">Why Sentinel AI</p>
+    <h2>The advantages that matter to you</h2>
+    <div class="adv">
+      <div class="advb"><div class="n">~98%</div><h4>Faster to root cause</h4><p>1–3 hours of manual work collapses to under 2 minutes.</p></div>
+      <div class="advb"><div class="n">0</div><h4>Prerequisite knowledge</h4><p>No Athena SQL, no CloudWatch syntax, no tribal knowledge.</p></div>
+      <div class="advb"><div class="n">1</div><h4>File to add a backend</h4><p>Vendor-flexible by design — swap AWS, log source, or model.</p></div>
+      <div class="advb"><div class="n">Live</div><h4>Runtime config</h4><p>Credentials, region, DB, and model changed in-app — no restart.</p></div>
+    </div>
+    <div class="grid g2" style="margin-top:20px">
+      <div class="card"><div class="ic green">🔒</div><h3>Secure &amp; auditable</h3><p>Secrets are write-only in the UI (never returned to the browser). Every fetch is snapshotted; every RCA is persisted with a case history for a full audit trail.</p></div>
+      <div class="card"><div class="ic teal">🧭</div><h3>Consistent &amp; repeatable</h3><p>The same rigorous 5-step investigation runs every time — no steps skipped under pressure, no variation between engineers, day or night.</p></div>
+    </div>
+  </section>
+
+  <!-- 11 · IMPACT -->
+  <section class="slide">
+    <p class="kicker">Impact</p>
+    <h2>Time saved per incident</h2>
+    <p class="lead">Measured against the manual 4-step RCA for a typical 50-record pipeline failure.</p>
+    <div class="grid g3" style="margin-bottom:26px">
+      <div class="metric"><div class="mbefore">Manual: 15–30 min</div><div class="mbig g">&lt;30s</div><div class="mlabel">Failure discovery</div><div class="mafter">✓ Instant on click</div></div>
+      <div class="metric"><div class="mbefore">Manual: 20–45 min</div><div class="mbig a">&lt;60s</div><div class="mlabel">Log query + review</div><div class="mafter">✓ Auto-generated</div></div>
+      <div class="metric"><div class="mbefore">Manual: 30–60 min</div><div class="mbig b">&lt;90s</div><div class="mlabel">Full RCA report</div><div class="mafter">✓ Instant after Analyze</div></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span>Manual investigation</span><span style="color:var(--red);font-weight:700">1 – 3 hours</span></div>
+      <div class="bar" style="margin-bottom:14px"><i style="background:var(--red);width:100%"></i></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span>Sentinel AI (end-to-end)</span><span style="color:var(--green);font-weight:700">60 – 120 seconds</span></div>
+      <div class="bar"><i style="background:var(--green);width:2.5%"></i></div>
+      <p style="font-size:13px;color:var(--muted);margin-top:12px"><b style="color:var(--green);font-size:17px">~98%</b> reduction in mean time to root cause — and the knowledge barrier is gone entirely.</p>
+    </div>
+  </section>
+
+  <!-- 12 · ROADMAP / EXTENSIBILITY -->
+  <section class="slide">
+    <p class="kicker">Future Possibilities</p>
+    <h2>Built today · designed to grow</h2>
+    <p class="lead">The strategy/plugin architecture means each item below is an add-on, not a rewrite.</p>
+    <div style="display:flex;flex-direction:column">
+      <div class="rm"><div class="rbadge r-done">Done</div><div><h4>AI RCA · service health monitoring · runtime config · direct Claude · code intelligence</h4><p>The investigation pipeline, the proactive Glue/Lambda/DataSync health dashboard with profiles, live configuration, and GitHub code review are shipped and running.</p></div></div>
+      <div class="rm"><div class="rbadge r-next">Next</div><div><h4>Auto-link RCA → PR &amp; inline review comments</h4><p>Surface the pull request that fixes a failure, and post AI findings straight onto the PR at the right file/line.</p></div></div>
+      <div class="rm"><div class="rbadge r-next">Next</div><div><h4>Full repository scan &amp; failure-trend dashboard</h4><p>Run the review checklist across the whole repo; aggregate stored snapshots into trends, top error codes, and MTTR metrics.</p></div></div>
+      <div class="rm"><div class="rbadge r-str">Vision</div><div><h4>Integration hub — Jira · Slack · Email</h4><p>Auto-raise tickets, notify channels, and alert stakeholders when failures cross a threshold. No copy-paste.</p></div></div>
+      <div class="rm"><div class="rbadge r-str">Vision</div><div><h4>Predictive failure detection &amp; auto-remediation</h4><p>Learn from history to flag components likely to fail — and one-click re-submit failed records back into the pipeline.</p></div></div>
+    </div>
+  </section>
+
+  <!-- 13 · CLOSE -->
+  <section class="slide cover" style="align-items:center;text-align:center;justify-content:center">
+    <div style="font-size:60px;margin-bottom:18px">⚙</div>
+    <p class="kicker" style="color:var(--accent)">Roche DS Platform · Sentinel AI</p>
+    <h2 style="text-align:center;font-size:clamp(30px,5vw,56px)">From failure to fix<br><span style="color:var(--accent)">in 60 seconds.</span></h2>
+    <p class="lead" style="text-align:center;margin:14px auto 30px">Built with FastAPI · Amazon Athena · CloudWatch Logs Insights · Glue / Lambda / DataSync health · Claude AI · GitHub MCP</p>
+    <div class="pills" style="justify-content:center">
+      <span class="pill"><span class="dot"></span>~98% faster RCA</span>
+      <span class="pill"><span class="dot b"></span>Proactive service health</span>
+      <span class="pill"><span class="dot p"></span>Pluggable &amp; future-ready</span>
+      <span class="pill"><span class="dot o"></span>Running today</span>
+    </div>
+  </section>
+
+</div>
+
+<script>
+  const slides = [...document.querySelectorAll('.slide')];
+  let i = 0;
+  const counter = document.getElementById('counter');
+  const progress = document.getElementById('progress');
+  const pad = n => String(n).padStart(2,'0');
+  function show(n){
+    i = Math.max(0, Math.min(slides.length-1, n));
+    slides.forEach((s,x)=>s.classList.toggle('active', x===i));
+    counter.textContent = pad(i+1)+' / '+pad(slides.length);
+    progress.style.width = ((i+1)/slides.length*100)+'%';
+    if(history.replaceState) history.replaceState(null,'','#'+(i+1));
+  }
+  function fromHash(){ const n = parseInt(location.hash.slice(1),10); return isNaN(n)?0:n-1; }
+  window.addEventListener('hashchange', ()=>show(fromHash()));
+  document.addEventListener('keydown', e=>{
+    if(['ArrowRight','ArrowDown',' ','PageDown'].includes(e.key)){e.preventDefault();show(i+1);}
+    else if(['ArrowLeft','ArrowUp','PageUp'].includes(e.key)){e.preventDefault();show(i-1);}
+    else if(e.key==='Home'){show(0);} else if(e.key==='End'){show(slides.length-1);}
+    else if(e.key==='f'||e.key==='F'){ if(!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
+  });
+  document.getElementById('deck').addEventListener('click', e=>{
+    const r = window.innerWidth*0.28;
+    if(e.clientX < r) show(i-1); else if(e.clientX > window.innerWidth-r) show(i+1);
+  });
+  show(fromHash());
+</script>
+</body>
+</html>

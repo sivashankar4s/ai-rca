@@ -74,3 +74,62 @@ class TestNavifyLLMProvider:
             with patch("backend.providers.llm.navify.requests.post", side_effect=conn_err):
                 with pytest.raises(RuntimeError, match="Cannot connect"):
                     provider.invoke("test")
+
+
+def _sse(content: str) -> bytes:
+    return f'data: {{"choices":[{{"delta":{{"content":"{content}"}}}}]}}'.encode()
+
+
+class TestNavifyLLMProviderStream:
+    def test_stream_yields_deltas_and_stops_on_done(self) -> None:
+        mock_resp = MagicMock()
+        mock_resp.iter_lines.return_value = [
+            _sse("Hello"),
+            b"",
+            _sse(" world"),
+            b"data: [DONE]",
+            _sse(" ignored"),
+        ]
+        with patch("backend.providers.llm.navify.settings") as s:
+            s.llm_base_url = "http://llm.example.com"
+            provider = NavifyLLMProvider()
+            s.llm_api_key = "key"
+            s.llm_model = "navify-v1"
+            with patch("backend.providers.llm.navify.requests.post", return_value=mock_resp):
+                chunks = list(provider.invoke_stream("prompt"))
+        assert "".join(chunks) == "Hello world"
+
+    def test_stream_skips_malformed_and_non_data_lines(self) -> None:
+        mock_resp = MagicMock()
+        mock_resp.iter_lines.return_value = [b": keep-alive", b"data: not-json", _sse("ok")]
+        with patch("backend.providers.llm.navify.settings") as s:
+            s.llm_base_url = "http://llm.example.com"
+            provider = NavifyLLMProvider()
+            s.llm_api_key = "key"
+            s.llm_model = "navify-v1"
+            with patch("backend.providers.llm.navify.requests.post", return_value=mock_resp):
+                chunks = list(provider.invoke_stream("prompt"))
+        assert chunks == ["ok"]
+
+    def test_stream_raises_when_no_api_key(self) -> None:
+        with patch("backend.providers.llm.navify.settings") as s:
+            s.llm_base_url = "http://llm.example.com"
+            provider = NavifyLLMProvider()
+            s.llm_api_key = ""
+            with pytest.raises(RuntimeError, match="LLM_API_KEY is not configured"):
+                list(provider.invoke_stream("hello"))
+
+    def test_stream_raises_on_http_error(self) -> None:
+        error_resp = MagicMock()
+        error_resp.status_code = 500
+        http_err = requests.exceptions.HTTPError(response=error_resp)
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status.side_effect = http_err
+        with patch("backend.providers.llm.navify.settings") as s:
+            s.llm_base_url = "http://llm.example.com"
+            provider = NavifyLLMProvider()
+            s.llm_api_key = "key"
+            s.llm_model = "navify-v1"
+            with patch("backend.providers.llm.navify.requests.post", return_value=mock_resp):
+                with pytest.raises(RuntimeError, match="500"):
+                    list(provider.invoke_stream("test"))
