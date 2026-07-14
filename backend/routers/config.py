@@ -140,13 +140,28 @@ def _build_athena_status(row_cfg: dict | None, *, db_row_exists: bool) -> Athena
     return AthenaConfigStatus(configured=False)
 
 
-def _build_health_status(row_cfg: dict | None) -> HealthConfigStatus:
-    """Build HealthConfigStatus from the persisted health_config (no env fallback)."""
-    cfg = row_cfg or {}
-    glue_jobs: list[str] = cfg.get("glue_jobs") or []
-    glue_workflows: list[str] = cfg.get("glue_workflows") or []
-    lambda_functions: list[str] = cfg.get("lambda_functions") or []
-    datasync_tasks = [HealthResource(**t) for t in cfg.get("datasync_tasks") or []]
+def _build_health_status(row_cfg: dict | list | None) -> HealthConfigStatus:
+    """Build HealthConfigStatus from the persisted health_config (no env fallback).
+
+    Accepts either the legacy single-dict format or the newer list-of-profiles format;
+    in the list case all resources are aggregated across profiles.
+    """
+    profiles: list[dict] = []
+    if isinstance(row_cfg, list):
+        profiles = row_cfg
+    elif isinstance(row_cfg, dict):
+        profiles = [row_cfg]
+
+    glue_jobs: list[str] = []
+    glue_workflows: list[str] = []
+    lambda_functions: list[str] = []
+    datasync_tasks: list[HealthResource] = []
+    for cfg in profiles:
+        glue_jobs += cfg.get("glue_jobs") or []
+        glue_workflows += cfg.get("glue_workflows") or []
+        lambda_functions += cfg.get("lambda_functions") or []
+        datasync_tasks += [HealthResource(**t) for t in cfg.get("datasync_tasks") or []]
+
     configured = bool(glue_jobs or glue_workflows or lambda_functions or datasync_tasks)
     return HealthConfigStatus(
         configured=configured,
