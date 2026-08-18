@@ -1062,6 +1062,14 @@ async function loadHealthTabProfiles() {
   if (names.includes(previous)) healthProfileSel.value = previous;
 }
 
+function _setHealthIdleState(message = 'Select a profile or date range, then click Refresh.') {
+  _healthResults = [];
+  _healthRange = null;
+  healthGrid.innerHTML = '';
+  _renderHealthTotal(0, 0);
+  healthStatusEl.textContent = message;
+}
+
 function _renderHealthTotal(total, count) {
   if (count === 0) {
     healthTotalEl.classList.add('hidden');
@@ -1254,13 +1262,13 @@ function _onHealthWindowChange() {
       healthEndEl.value = _ymd(now);
     }
   }
-  loadServiceHealth();
+  _setHealthIdleState();
 }
 
 healthWindowSel.addEventListener('change', _onHealthWindowChange);
-healthStartEl.addEventListener('change', loadServiceHealth);
-healthEndEl.addEventListener('change', loadServiceHealth);
-healthProfileSel.addEventListener('change', loadServiceHealth);
+healthStartEl.addEventListener('change', () => _setHealthIdleState());
+healthEndEl.addEventListener('change', () => _setHealthIdleState());
+healthProfileSel.addEventListener('change', () => _setHealthIdleState());
 healthRefreshBtn.addEventListener('click', loadServiceHealth);
 healthExportBtn.addEventListener('click', exportHealthCsv);
 
@@ -1714,7 +1722,7 @@ function showGithub() {
 async function showHealth() {
   _activateTab(healthView, navHealth);
   await loadHealthTabProfiles();
-  loadServiceHealth();
+  if (!_healthResults.length) _setHealthIdleState();
 }
 
 function showConfig() {

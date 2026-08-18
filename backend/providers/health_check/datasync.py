@@ -5,7 +5,9 @@ number of task executions that ended in ``ERROR`` within the lookback window.
 """
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from itertools import repeat
 
 from botocore.exceptions import BotoCoreError, ClientError
 
@@ -23,6 +25,7 @@ from backend.strategies.health_check import HealthCheckStrategy
 logger = logging.getLogger(__name__)
 
 _MAX_DESCRIBES = 25
+_MAX_WORKERS = 8
 
 
 class DataSyncHealthCheck(HealthCheckStrategy):
@@ -49,7 +52,10 @@ class DataSyncHealthCheck(HealthCheckStrategy):
         return resources
 
     def check(self, ids: list[str], start: datetime, end: datetime) -> list[ServiceHealth]:
-        return [self._check_one(arn, start, end) for arn in ids]
+        if len(ids) <= 1:
+            return [self._check_one(arn, start, end) for arn in ids]
+        with ThreadPoolExecutor(max_workers=min(_MAX_WORKERS, len(ids))) as pool:
+            return list(pool.map(self._check_one, ids, repeat(start), repeat(end)))
 
     def _check_one(self, arn: str, start: datetime, end: datetime) -> ServiceHealth:
         try:
@@ -100,9 +106,10 @@ class DataSyncHealthCheck(HealthCheckStrategy):
     def _collect_executions(self, arn: str, start: datetime, end: datetime) -> list[HealthRun]:
         resp = self._client.list_task_executions(TaskArn=arn)
         runs: list[HealthRun] = []
-        for ex in resp.get("TaskExecutions", [])[:_MAX_DESCRIBES]:
+        executions = resp.get("TaskExecutions", [])[:_MAX_DESCRIBES]
+        infos = self._describe_task_executions([ex["TaskExecutionArn"] for ex in executions])
+        for ex, info in zip(executions, infos, strict=False):
             exec_arn = ex["TaskExecutionArn"]
-            info = self._client.describe_task_execution(TaskExecutionArn=exec_arn)
             started = info.get("StartTime")
             if not in_window(started, start, end):
                 continue
@@ -122,12 +129,22 @@ class DataSyncHealthCheck(HealthCheckStrategy):
 
     def _error_count(self, arn: str, start: datetime, end: datetime) -> int:
         resp = self._client.list_task_executions(TaskArn=arn)
-        executions = resp.get("TaskExecutions", [])
-        failures = 0
-        for ex in executions[:_MAX_DESCRIBES]:
-            if ex.get("Status") != "ERROR":
-                continue
-            detail = self._client.describe_task_execution(TaskExecutionArn=ex["TaskExecutionArn"])
-            if in_window(detail.get("StartTime"), start, end):
-                failures += 1
-        return failures
+        error_arns = [
+            ex["TaskExecutionArn"]
+            for ex in resp.get("TaskExecutions", [])[:_MAX_DESCRIBES]
+            if ex.get("Status") == "ERROR"
+        ]
+        return sum(
+            1
+            for detail in self._describe_task_executions(error_arns)
+            if in_window(detail.get("StartTime"), start, end)
+        )
+
+    def _describe_task_executions(self, execution_arns: list[str]) -> list[dict]:
+        if len(execution_arns) <= 1:
+            return [self._describe_task_execution(arn) for arn in execution_arns]
+        with ThreadPoolExecutor(max_workers=min(_MAX_WORKERS, len(execution_arns))) as pool:
+            return list(pool.map(self._describe_task_execution, execution_arns))
+
+    def _describe_task_execution(self, execution_arn: str) -> dict:
+        return self._client.describe_task_execution(TaskExecutionArn=execution_arn)
