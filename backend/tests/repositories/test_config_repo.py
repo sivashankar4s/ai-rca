@@ -245,6 +245,7 @@ class TestUpsertHealthConfig:
 
 class TestHealthProfiles:
     def test_no_profiles_returns_empty(self, db_session: Session) -> None:
+        config_repo._upsert_app_config(db_session, health_config=None, health_profiles=None)
         assert config_repo.get_profiles(db_session) == []
 
     def test_legacy_config_surfaces_as_default(self, db_session: Session) -> None:
@@ -257,6 +258,23 @@ class TestHealthProfiles:
     def test_managed_empty_list_wins_over_legacy(self, db_session: Session) -> None:
         config_repo.upsert_health_config(db_session, HealthConfigUpdate(glue_jobs=["etl"]))
         config_repo._persist_profiles(db_session, [])
+        assert config_repo.get_profiles(db_session) == []
+
+    def test_legacy_profile_list_in_health_config_is_returned(self, db_session: Session) -> None:
+        row = config_repo._upsert_app_config(
+            db_session,
+            health_config=[{"name": "Prod", "glue_jobs": ["etl"], "datasync_tasks": []}],
+        )
+        db_session.commit()
+        assert row.health_config == [{"name": "Prod", "glue_jobs": ["etl"], "datasync_tasks": []}]
+        assert config_repo.get_profiles(db_session) == [
+            {"name": "Prod", "glue_jobs": ["etl"], "datasync_tasks": []}
+        ]
+
+    def test_malformed_legacy_health_config_list_is_ignored(self, db_session: Session) -> None:
+        row = config_repo._upsert_app_config(db_session, health_config=["bad-shape"])
+        db_session.commit()
+        assert row.health_config == ["bad-shape"]
         assert config_repo.get_profiles(db_session) == []
 
     def test_create_and_get_profile(self, db_session: Session) -> None:
@@ -296,6 +314,7 @@ class TestHealthProfiles:
             config_repo.update_profile(db_session, HealthProfileUpdate(name="ghost"))
 
     def test_rename_profile(self, db_session: Session) -> None:
+        config_repo._upsert_app_config(db_session, health_config=None, health_profiles=None)
         config_repo.create_profile(db_session, "Old")
         config_repo.rename_profile(db_session, "Old", "New")
         names = {p["name"] for p in config_repo.get_profiles(db_session)}
@@ -312,6 +331,7 @@ class TestHealthProfiles:
             config_repo.rename_profile(db_session, "ghost", "x")
 
     def test_delete_profile(self, db_session: Session) -> None:
+        config_repo._upsert_app_config(db_session, health_config=None, health_profiles=None)
         config_repo.create_profile(db_session, "A")
         config_repo.create_profile(db_session, "B")
         config_repo.delete_profile(db_session, "A")
@@ -323,6 +343,7 @@ class TestHealthProfiles:
             config_repo.delete_profile(db_session, "ghost")
 
     def test_get_profile_resources_default_is_first(self, db_session: Session) -> None:
+        config_repo._upsert_app_config(db_session, health_config=None, health_profiles=None)
         config_repo.create_profile(db_session, "First")
         config_repo.create_profile(db_session, "Second")
         assert config_repo.get_profile_resources(db_session)["name"] == "First"
