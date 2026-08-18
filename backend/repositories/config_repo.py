@@ -140,19 +140,33 @@ def _default_from_legacy(health_cfg: dict) -> dict:
     return {"name": "Default", **{k: health_cfg.get(k, []) for k in _RESOURCE_KEYS}}
 
 
-def _legacy_has_resources(health_cfg: dict | None) -> bool:
-    return bool(health_cfg) and any(health_cfg.get(k) for k in _RESOURCE_KEYS)
+def _legacy_has_resources(health_cfg: object | None) -> bool:
+    if not isinstance(health_cfg, dict):
+        return False
+    return any(health_cfg.get(k) for k in _RESOURCE_KEYS)
+
+
+def _legacy_profiles(health_cfg: object | None) -> list[dict] | None:
+    if not isinstance(health_cfg, list):
+        return None
+    if not all(isinstance(profile, dict) and isinstance(profile.get("name"), str) for profile in health_cfg):
+        return None
+    return [dict(profile) for profile in health_cfg]
 
 
 def get_profiles(db: Session) -> list[dict]:
     """Return all health profiles.
 
     Once profiles have been managed the stored list wins (even when empty). Before that,
-    a non-empty legacy ``health_config`` is surfaced as a single 'Default' profile.
+    ``health_config`` may contain either a legacy single resource dict or an older seeded
+    list of profile dicts.
     """
     row = get_app_config(db)
     if row is not None and row.health_profiles is not None:
         return [dict(p) for p in row.health_profiles]
+    legacy_profiles = _legacy_profiles(row.health_config if row is not None else None)
+    if legacy_profiles is not None:
+        return legacy_profiles
     if row is not None and _legacy_has_resources(row.health_config):
         return [_default_from_legacy(row.health_config)]
     return []
