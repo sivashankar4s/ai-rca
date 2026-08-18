@@ -5,7 +5,9 @@ number of runs that failed/timed out/errored within the lookback window.
 """
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from itertools import repeat
 
 from botocore.exceptions import BotoCoreError, ClientError
 
@@ -25,6 +27,7 @@ logger = logging.getLogger(__name__)
 _FAILED_STATES = {"FAILED", "TIMEOUT", "ERROR"}
 _DOWN_STATES = _FAILED_STATES | {"STOPPED"}
 _MAX_PAGES = 5
+_MAX_WORKERS = 8
 
 
 class GlueJobHealthCheck(HealthCheckStrategy):
@@ -49,7 +52,10 @@ class GlueJobHealthCheck(HealthCheckStrategy):
         return [HealthResource(id=n, label=n) for n in names]
 
     def check(self, ids: list[str], start: datetime, end: datetime) -> list[ServiceHealth]:
-        return [self._check_one(name, start, end) for name in ids]
+        if len(ids) <= 1:
+            return [self._check_one(name, start, end) for name in ids]
+        with ThreadPoolExecutor(max_workers=min(_MAX_WORKERS, len(ids))) as pool:
+            return list(pool.map(self._check_one, ids, repeat(start), repeat(end)))
 
     def _check_one(self, name: str, start: datetime, end: datetime) -> ServiceHealth:
         try:

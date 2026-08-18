@@ -8,7 +8,9 @@ still show up as failed invocations in the console.
 """
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from itertools import repeat
 
 from botocore.exceptions import BotoCoreError, ClientError
 
@@ -23,6 +25,8 @@ from backend.providers.health_check._aws import build_client
 from backend.strategies.health_check import HealthCheckStrategy
 
 logger = logging.getLogger(__name__)
+
+_MAX_WORKERS = 8
 
 
 class LambdaHealthCheck(HealthCheckStrategy):
@@ -48,7 +52,10 @@ class LambdaHealthCheck(HealthCheckStrategy):
         return [HealthResource(id=n, label=n) for n in names]
 
     def check(self, ids: list[str], start: datetime, end: datetime) -> list[ServiceHealth]:
-        return [self._check_one(name, start, end) for name in ids]
+        if len(ids) <= 1:
+            return [self._check_one(name, start, end) for name in ids]
+        with ThreadPoolExecutor(max_workers=min(_MAX_WORKERS, len(ids))) as pool:
+            return list(pool.map(self._check_one, ids, repeat(start), repeat(end)))
 
     def _check_one(self, name: str, start: datetime, end: datetime) -> ServiceHealth:
         try:
