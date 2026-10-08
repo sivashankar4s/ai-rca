@@ -1,10 +1,58 @@
 # Sentinel AI
 
-> **Hackathon Project**
-> AI-powered service health monitoring and root-cause analysis for AWS data pipelines —
-> on-demand health for Glue, Lambda, DataSync, and workflows (grouped into profiles),
-> failure drill-downs with CloudWatch reasons, AI-driven root-cause analysis, and a
-> CRM-style case history.
+> **Exploring AI for Cloud Operations**
+> Can AI help engineers understand cloud failures faster, without switching between
+> multiple AWS services and consoles? Sentinel AI is an AI-assisted application for AWS
+> health monitoring and Root Cause Analysis (RCA) — combining **AWS signals +
+> deterministic engineering logic + LLM reasoning** to support engineers during
+> incident investigation.
+
+The goal was **not** to build another chatbot. It is a proof of concept for how an
+application can control the context given to a model, keep deterministic logic outside
+the LLM, and validate what the model returns.
+
+---
+
+## The Three Views
+
+### 🔹 Health
+A unified view to monitor the health/status of relevant AWS components (Glue, Lambda,
+DataSync, and workflows, grouped into profiles) and quickly identify failures or
+unhealthy services.
+
+### 🔍 RCA
+The RCA workflow helps engineers:
+
+- Identify failed components
+- Filter failures by time window
+- Group related failures
+- Collect relevant failure context
+- Generate an AI-assisted RCA summary
+- Navigate to relevant CloudWatch information for deeper investigation
+
+### ⚙️ Config
+A dedicated configuration view to manage the context and parameters used by the
+application, making the investigation workflow easier to control and extend.
+
+---
+
+## Design Philosophy
+
+**AI alone isn't the solution.** A more useful approach is:
+
+```
+AWS Signals → Relevant Context → Deterministic Filtering → LLM Reasoning → Actionable RCA
+```
+
+The value of AI in engineering isn't "let the LLM do everything" — it's finding the
+right balance between **deterministic software + cloud signals + relevant context + AI
+reasoning**. The application decides what information reaches the model, deterministic
+logic (filtering, grouping, signatures) stays outside the LLM, and generated responses
+are validated.
+
+Areas this POC explores: agentic AI vs traditional automation, LLM reasoning and tool
+integration, RAG and context engineering, hallucination prevention, AI guardrails and
+validation, cloud observability, and building practical AI systems on AWS.
 
 ---
 
@@ -413,6 +461,8 @@ Returns `{"status": "ok"}`.
     "athena:StartQueryExecution",
     "athena:GetQueryExecution",
     "athena:GetQueryResults",
+    "glue:GetDatabases",
+    "glue:GetTables",
     "logs:StartQuery",
     "logs:GetQueryResults",
     "logs:DescribeLogGroups"
@@ -420,6 +470,11 @@ Returns `{"status": "ok"}`.
   "Resource": "*"
 }
 ```
+
+> `glue:GetDatabases` / `glue:GetTables` power the database/table dropdowns on the Config
+> page's Athena card. `GetTables` returns both regular tables and views (Athena views are
+> stored in the Glue Data Catalog as tables with `TableType=VIRTUAL_VIEW`), so views show
+> up in the Table dropdown automatically.
 
 > No `bedrock:InvokeModel` permission needed — the LLM is called via the Navify
 > Enrichment API over HTTPS. Not required at all when `LOG_ANALYSIS_PROVIDER=grafana_loki`
